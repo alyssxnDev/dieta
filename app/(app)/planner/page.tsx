@@ -1,7 +1,7 @@
 "use client"
 
 import { CalendarPlus, Plus } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 
 import { DayTabs } from "@/components/meals/day-tabs"
 import { MealCardPlanner } from "@/components/meals/meal-card-planner"
@@ -9,12 +9,10 @@ import { MealDetailSheet } from "@/components/meals/meal-detail-sheet"
 import { MealFormSheet } from "@/components/meals/meal-form-sheet"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { dayTotals } from "@/lib/calculations/macros"
-import { r } from "@/lib/calculations/macros"
+import { dayTotals, r } from "@/lib/calculations/macros"
 import { dayName, today } from "@/lib/date"
 import { useActiveProfile } from "@/lib/hooks/use-active-profile"
 import { useMealTemplatesByDay } from "@/lib/queries/meals"
-import type { MealTemplateWithItems } from "@/types/database"
 
 export default function PlannerPage() {
   const { active } = useActiveProfile()
@@ -24,9 +22,13 @@ export default function PlannerPage() {
     selectedDay,
   )
   const [formOpen, setFormOpen] = useState(false)
-  const [editingMeal, setEditingMeal] = useState<MealTemplateWithItems | null>(
-    null,
-  )
+  // Guarda só o ID — a meal real é derivada do cache `meals` pra atualizar
+  // quando items forem adicionados/removidos sem fechar o sheet.
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
+  const editingMeal = useMemo(() => {
+    if (!editingMealId || !meals) return null
+    return meals.find((m) => m.id === editingMealId) ?? null
+  }, [editingMealId, meals])
 
   const totals = dayTotals(meals ?? [])
 
@@ -34,12 +36,13 @@ export default function PlannerPage() {
     <main className="flex flex-1 flex-col gap-3 pb-4">
       <header className="px-4">
         <h1 className="text-2xl font-semibold tracking-tight">Planner</h1>
-        <p className="text-muted-foreground text-xs">
-          Toque num dia pra ver e editar. Toca em uma refeição pra editar só ela.
-        </p>
       </header>
 
-      <DayTabs selected={selectedDay} onSelect={setSelectedDay} accent={active?.color} />
+      <DayTabs
+        selected={selectedDay}
+        onSelect={setSelectedDay}
+        accent={active?.color}
+      />
 
       <section className="px-4">
         <div className="mb-3 flex items-baseline justify-between">
@@ -73,7 +76,7 @@ export default function PlannerPage() {
           <ul className="flex flex-col gap-2">
             {(meals ?? []).map((m) => (
               <li key={m.id}>
-                <MealCardPlanner meal={m} onClick={() => setEditingMeal(m)} />
+                <MealCardPlanner meal={m} onClick={() => setEditingMealId(m.id)} />
               </li>
             ))}
           </ul>
@@ -103,7 +106,7 @@ export default function PlannerPage() {
         <MealDetailSheet
           key={editingMeal.id}
           open
-          onOpenChange={(o) => !o && setEditingMeal(null)}
+          onOpenChange={(o) => !o && setEditingMealId(null)}
           meal={editingMeal}
         />
       )}

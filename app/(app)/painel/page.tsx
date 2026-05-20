@@ -111,10 +111,6 @@ export default function PainelPage() {
     <main className="flex flex-1 flex-col gap-4 px-4 pb-4">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Painel</h1>
-        <p className="text-muted-foreground text-xs">
-          Streaks contam dias passados consecutivos — hoje não conta.
-          Configurações do perfil ficam no ícone de engrenagem no topo.
-        </p>
       </header>
 
       <div className="grid grid-cols-2 gap-3">

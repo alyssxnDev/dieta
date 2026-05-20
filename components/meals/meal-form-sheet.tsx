@@ -60,7 +60,7 @@ export function MealFormSheet({
       name: "",
       time: "",
       notify: true,
-      days: defaultDay !== undefined ? [defaultDay] : [],
+      days: [0, 1, 2, 3, 4, 5, 6],
     },
   })
 
@@ -70,7 +70,7 @@ export function MealFormSheet({
       name: "",
       time: "",
       notify: true,
-      days: defaultDay !== undefined ? [defaultDay] : [],
+      days: [0, 1, 2, 3, 4, 5, 6],
     })
   }, [open, defaultDay, reset])
 

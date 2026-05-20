@@ -83,11 +83,10 @@ export default function HojePage() {
         </h1>
       </header>
 
-      <DaySummary
-        profile={active}
-        consumed={totals.consumed}
-        planned={totals.planned}
-      />
+      <DaySummary profile={active} consumed={totals.consumed} />
+
+      {/* Água SEMPRE acima das refeições */}
+      <WaterCard profile={active} date={date} />
 
       <section aria-label="Refeições" className="flex flex-col gap-2">
         {mealsLoading ? (
@@ -133,8 +132,6 @@ export default function HojePage() {
           })
         )}
       </section>
-
-      <WaterCard profile={active} date={date} />
     </main>
   )
 }

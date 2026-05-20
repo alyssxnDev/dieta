@@ -130,67 +130,76 @@ export function TodayMealCard({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="border-border flex flex-col gap-1 border-t px-2 py-2">
+            <div className="border-border border-t">
               {meal.items.length === 0 ? (
                 <p className="text-muted-foreground py-3 text-center text-xs">
                   Sem alimentos cadastrados nesta refeição.
                 </p>
               ) : (
-                meal.items.map((it) => {
-                  const done = completedItemIds.has(it.id)
-                  const macros = normalizeFoodItem(it.food, it.quantity)
-                  return (
+                <>
+                  {/* Link discreto pra marcar tudo no topo da lista */}
+                  <div className="flex justify-end px-3 pt-1.5">
                     <button
-                      key={it.id}
                       type="button"
-                      onClick={() => {
-                        haptic(8)
-                        onToggleItem(it.id, done)
-                      }}
-                      className="hover:bg-muted/50 flex items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors"
-                      aria-pressed={done}
+                      onClick={() => setConfirmOpen(true)}
+                      className="text-muted-foreground hover:text-foreground text-[11px] underline-offset-2 hover:underline"
                     >
-                      <motion.div
-                        initial={false}
-                        animate={{ scale: done ? 1 : 0.92 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                        className={cn(
-                          "flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                          done
-                            ? "border-transparent bg-emerald-500 text-zinc-950"
-                            : "border-border",
-                        )}
-                      >
-                        {done && <Check className="size-3.5" strokeWidth={3} />}
-                      </motion.div>
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={cn(
-                            "text-sm",
-                            done && "text-muted-foreground line-through",
-                          )}
-                        >
-                          {it.food.name}
-                        </p>
-                        <p className="text-muted-foreground tabular-nums text-[11px]">
-                          {r(it.quantity)}
-                          {UNIT_LABEL[it.food.measure_type]} · {r(macros.kcal)} kcal
-                        </p>
-                      </div>
+                      {allDone ? "desmarcar todos" : "marcar todos"}
                     </button>
-                  )
-                })
-              )}
+                  </div>
 
-              {meal.items.length > 0 && (
-                <Button
-                  variant={allDone ? "secondary" : "default"}
-                  size="sm"
-                  onClick={() => setConfirmOpen(true)}
-                  className="mx-2 mt-1 mb-1"
-                >
-                  {allDone ? "Desmarcar refeição inteira" : "Marcar refeição inteira"}
-                </Button>
+                  <div className="flex flex-col gap-0.5 px-2 pb-2">
+                    {meal.items.map((it) => {
+                      const done = completedItemIds.has(it.id)
+                      const macros = normalizeFoodItem(it.food, it.quantity)
+                      return (
+                        <button
+                          key={it.id}
+                          type="button"
+                          onClick={() => {
+                            haptic(8)
+                            onToggleItem(it.id, done)
+                          }}
+                          className="hover:bg-muted/50 flex items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors"
+                          aria-pressed={done}
+                        >
+                          <motion.div
+                            initial={false}
+                            animate={{ scale: done ? 1 : 0.92 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 18,
+                            }}
+                            className={cn(
+                              "flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                              done
+                                ? "border-transparent bg-emerald-500 text-zinc-950"
+                                : "border-border",
+                            )}
+                          >
+                            {done && <Check className="size-3.5" strokeWidth={3} />}
+                          </motion.div>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={cn(
+                                "text-sm",
+                                done && "text-muted-foreground line-through",
+                              )}
+                            >
+                              {it.food.name}
+                            </p>
+                            <p className="text-muted-foreground tabular-nums text-[11px]">
+                              {r(it.quantity)}
+                              {UNIT_LABEL[it.food.measure_type]} ·{" "}
+                              {r(macros.kcal)} kcal
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
               )}
             </div>
           </motion.div>

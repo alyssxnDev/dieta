@@ -5,7 +5,10 @@ import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {
+  KeypadDisplay,
+  NumericKeypad,
+} from "@/components/ui/numeric-keypad"
 import {
   Sheet,
   SheetContent,
@@ -27,9 +30,9 @@ const UNIT_LABEL: Record<Food["measure_type"], string> = {
 }
 
 /**
- * Context opcional: se passado, oferece o toggle "adicionar em todas as
- * refeições com este nome" no ato da inclusão. Caso contrário só insere no
- * meal corrente (callback `onPicked`).
+ * Picker em 2 etapas: busca → quantidade (com numpad in-app, sem teclado iOS).
+ * Se `replicateContext` passado, oferece toggle "adicionar em todas as
+ * refeições com este nome" no passo da quantidade.
  */
 export function FoodPickerSheet({
   open,
@@ -64,24 +67,25 @@ export function FoodPickerSheet({
     setReplicateAll(false)
   }
 
+  const numericQty = Number(qty.replace(",", "."))
+  const validQty = qty && Number.isFinite(numericQty) && numericQty > 0
+
   const preview = useMemo(() => {
-    if (!selected || !qty || isNaN(Number(qty))) return null
-    return normalizeFoodItem(selected, Number(qty))
-  }, [selected, qty])
+    if (!selected || !validQty) return null
+    return normalizeFoodItem(selected, numericQty)
+  }, [selected, validQty, numericQty])
 
   const handleAdd = async () => {
-    if (!selected || !qty) return
-    const n = Number(qty)
-    if (!Number.isFinite(n) || n <= 0) return
+    if (!selected || !validQty) return
     if (replicateAll && replicateContext) {
       await addToAll.mutateAsync({
         profileId: replicateContext.profileId,
         mealName: replicateContext.mealName,
         foodId: selected.id,
-        quantity: n,
+        quantity: numericQty,
       })
     } else {
-      await onPicked(selected.id, n)
+      await onPicked(selected.id, numericQty)
     }
     reset()
     onOpenChange(false)
@@ -95,11 +99,15 @@ export function FoodPickerSheet({
         onOpenChange(o)
       }}
     >
-      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
+      <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Adicionar alimento</SheetTitle>
+          <SheetTitle>
+            {selected ? selected.name : "Adicionar alimento"}
+          </SheetTitle>
           <SheetDescription>
-            {selected ? `Quanto de ${selected.name}?` : "Busca no seu banco."}
+            {selected
+              ? `Por ${r(selected.reference_quantity)}${UNIT_LABEL[selected.measure_type]}: ${r(selected.kcal)} kcal`
+              : "Busca no seu banco e escolhe."}
           </SheetDescription>
         </SheetHeader>
 
@@ -132,7 +140,7 @@ export function FoodPickerSheet({
                       <button
                         type="button"
                         onClick={() => setSelected(f)}
-                        className="hover:bg-muted flex w-full items-baseline justify-between gap-2 rounded-lg px-3 py-2 text-left"
+                        className="hover:bg-muted flex w-full items-baseline justify-between gap-2 rounded-lg px-3 py-2.5 text-left"
                       >
                         <span className="truncate text-sm">{f.name}</span>
                         <span className="text-muted-foreground tabular-nums shrink-0 text-xs">
@@ -147,40 +155,39 @@ export function FoodPickerSheet({
             </>
           ) : (
             <>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="qty">
-                  Quantidade ({UNIT_LABEL[selected.measure_type]})
-                </Label>
-                <Input
-                  id="qty"
-                  autoFocus
-                  type="number"
-                  inputMode="decimal"
-                  step="any"
-                  value={qty}
-                  onChange={(e) => setQty(e.target.value)}
-                />
-              </div>
+              {/* Display numérico do valor atual */}
+              <KeypadDisplay
+                value={qty}
+                unit={UNIT_LABEL[selected.measure_type]}
+              />
 
-              {preview && (
-                <div className="bg-muted/50 rounded-xl border border-border px-3 py-2">
-                  <p className="text-muted-foreground mb-1 text-xs">Adiciona</p>
+              {/* Preview do impacto */}
+              {preview ? (
+                <div className="bg-muted/40 rounded-xl border border-border px-3 py-2 text-center">
                   <p className="tabular-nums text-sm">
                     {r(preview.kcal)} kcal · C {r(preview.carb_g)}g · P{" "}
                     {r(preview.protein_g)}g · G {r(preview.fat_g)}g
                   </p>
                 </div>
+              ) : (
+                <div className="bg-muted/20 rounded-xl border border-dashed border-border px-3 py-2 text-center">
+                  <p className="text-muted-foreground text-xs">
+                    Digita a quantidade
+                  </p>
+                </div>
               )}
 
+              {/* Numpad in-app (sem teclado iOS) */}
+              <NumericKeypad value={qty} onChange={setQty} />
+
               {replicateContext && (
-                <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
+                <label className="bg-card flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
                   <span className="flex flex-col">
                     <span className="text-sm">
-                      Adicionar em todas as “{replicateContext.mealName}”
+                      Em todas as “{replicateContext.mealName}”
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      Insere o mesmo alimento em todas as refeições com esse
-                      nome (qualquer dia da semana).
+                      Adiciona em todas as refeições com esse nome (qualquer dia).
                     </span>
                   </span>
                   <Switch
@@ -215,12 +222,7 @@ export function FoodPickerSheet({
             <Button
               type="button"
               onClick={handleAdd}
-              disabled={
-                !selected ||
-                !qty ||
-                Number(qty) <= 0 ||
-                addToAll.isPending
-              }
+              disabled={!selected || !validQty || addToAll.isPending}
               className="flex-1"
             >
               {addToAll.isPending && <Loader2 className="animate-spin" />}

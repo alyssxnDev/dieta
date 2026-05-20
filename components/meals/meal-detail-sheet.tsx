@@ -131,23 +131,27 @@ export function MealDetailSheet({
               />
             </div>
 
-            <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="meal-time">Horário</Label>
-                <Input
-                  id="meal-time"
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2 pt-6">
-                <Label htmlFor="meal-notify" className="text-xs">
-                  Notificar
-                </Label>
-                <Switch id="meal-notify" checked={notify} onCheckedChange={setNotify} />
-              </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="meal-time">Horário</Label>
+              <Input
+                id="meal-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
             </div>
+
+            <label
+              htmlFor="meal-notify"
+              className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5"
+            >
+              <span className="text-sm">Notificar</span>
+              <Switch
+                id="meal-notify"
+                checked={notify}
+                onCheckedChange={setNotify}
+              />
+            </label>
 
             {dirty && (
               <Button onClick={saveMeta} variant="secondary" size="sm" disabled={update.isPending}>

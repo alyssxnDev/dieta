@@ -7,11 +7,11 @@ import type { MealTotals, Profile } from "@/types/database"
 export function DaySummary({
   profile,
   consumed,
-  planned,
 }: {
   profile: Profile
   consumed: MealTotals
-  planned: MealTotals
+  /** planned ainda chega mas não é renderizado — kept for caller compat. */
+  planned?: MealTotals
 }) {
   return (
     <section
@@ -21,7 +21,6 @@ export function DaySummary({
       <KcalBar
         consumed={consumed.kcal}
         goal={profile.daily_kcal_goal}
-        planned={planned.kcal}
         color={profile.color}
       />
 
@@ -52,16 +51,13 @@ export function DaySummary({
 function KcalBar({
   consumed,
   goal,
-  planned,
   color,
 }: {
   consumed: number
   goal: number
-  planned: number
   color: string
 }) {
   const pct = goal > 0 ? Math.min(100, (consumed / goal) * 100) : 0
-  const plannedPct = goal > 0 ? Math.min(100, (planned / goal) * 100) : 0
   const over = consumed > goal
   return (
     <div className="flex flex-col gap-1.5">
@@ -76,15 +72,9 @@ function KcalBar({
           <span className="text-muted-foreground"> / {r(goal)}</span>
         </span>
       </div>
-      <div className="bg-muted relative h-2 overflow-hidden rounded-full">
-        {/* Planejado em background (mais opaco) */}
+      <div className="bg-muted h-2 overflow-hidden rounded-full">
         <div
-          className="absolute inset-y-0 left-0 opacity-25"
-          style={{ width: `${plannedPct}%`, backgroundColor: color }}
-        />
-        {/* Consumido por cima */}
-        <div
-          className="absolute inset-y-0 left-0 transition-all"
+          className="h-full transition-all"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>

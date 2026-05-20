@@ -4,7 +4,10 @@ import { Droplet, Plus, Undo2 } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import {
+  KeypadDisplay,
+  NumericKeypad,
+} from "@/components/ui/numeric-keypad"
 import {
   Sheet,
   SheetContent,
@@ -144,25 +147,19 @@ export function WaterCard({
       </section>
 
       <Sheet open={customOpen} onOpenChange={setCustomOpen}>
-        <SheetContent side="bottom" className="max-h-[50dvh]">
+        <SheetContent side="bottom" className="max-h-[85dvh]">
           <SheetHeader>
-            <SheetTitle>Adicionar quantidade</SheetTitle>
+            <SheetTitle>Adicionar água</SheetTitle>
           </SheetHeader>
           <div className="flex flex-col gap-3 px-4 pb-4">
-            <div className="relative">
-              <Input
-                autoFocus
-                type="number"
-                inputMode="numeric"
-                step="50"
-                value={customMl}
-                onChange={(e) => setCustomMl(e.target.value)}
-                placeholder="ml"
-                className="text-center text-2xl"
-                onKeyDown={(e) => e.key === "Enter" && submitCustom()}
-              />
-            </div>
-            <div className="flex gap-2">
+            <KeypadDisplay value={customMl} unit="ml" />
+            <NumericKeypad
+              value={customMl}
+              onChange={setCustomMl}
+              allowDecimal={false}
+              maxLength={5}
+            />
+            <div className="flex gap-2 pt-1">
               <Button
                 variant="secondary"
                 className="flex-1"

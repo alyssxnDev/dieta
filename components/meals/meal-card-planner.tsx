@@ -2,7 +2,7 @@
 
 import { Clock } from "lucide-react"
 
-import { mealTotals, r } from "@/lib/calculations/macros"
+import { mealTotals, normalizeFoodItem, r } from "@/lib/calculations/macros"
 import type { MealTemplateWithItems } from "@/types/database"
 
 const UNIT_LABEL = { g: "g", ml: "ml", unit: "un" } as const
@@ -42,21 +42,27 @@ export function MealCardPlanner({
         <Stat label="G" value={`${r(totals.fat_g)}g`} />
       </div>
 
-      {/* Lista vertical de alimentos */}
+      {/* Lista de alimentos: nome + qty + kcal inline com pontos */}
       {meal.items.length > 0 ? (
-        <ul className="border-border flex flex-col gap-1 border-t pt-2 text-xs">
-          {meal.items.map((it) => (
-            <li
-              key={it.id}
-              className="text-muted-foreground flex items-center justify-between gap-2"
-            >
-              <span className="truncate">{it.food.name}</span>
-              <span className="tabular-nums shrink-0">
-                {r(it.quantity)}
-                {UNIT_LABEL[it.food.measure_type]}
-              </span>
-            </li>
-          ))}
+        <ul className="border-border flex flex-col gap-1 border-t pt-2">
+          {meal.items.map((it) => {
+            const macros = normalizeFoodItem(it.food, it.quantity)
+            return (
+              <li
+                key={it.id}
+                className="text-xs leading-snug"
+              >
+                <span className="text-foreground">{it.food.name}</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {" · "}
+                  {r(it.quantity)}
+                  {UNIT_LABEL[it.food.measure_type]}
+                  {" · "}
+                  {r(macros.kcal)} kcal
+                </span>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <p className="text-muted-foreground/60 border-border border-t pt-2 text-xs italic">
@@ -81,9 +87,7 @@ function Stat({
       <span className="text-muted-foreground text-[10px] uppercase">
         {label}
       </span>
-      <span
-        className={`tabular-nums text-sm ${bold ? "font-semibold" : ""}`}
-      >
+      <span className={`tabular-nums text-sm ${bold ? "font-semibold" : ""}`}>
         {value}
       </span>
     </div>

@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -131,9 +130,6 @@ export function FoodFormSheet({
       <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{initial ? "Editar alimento" : "Novo alimento"}</SheetTitle>
-          <SheetDescription>
-            Coloca os macros — kcal é calculado (4·carb + 4·prot + 9·gord).
-          </SheetDescription>
         </SheetHeader>
 
         <form
@@ -226,16 +222,8 @@ export function FoodFormSheet({
             </div>
           </div>
 
-          {/* Kcal calculado em destaque */}
           <div className="bg-muted/50 flex items-center justify-between rounded-xl border border-border px-4 py-3">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                Kcal calculado
-              </p>
-              <p className="text-muted-foreground text-[10px]">
-                4·carb + 4·prot + 9·gord
-              </p>
-            </div>
+            <span className="text-sm font-medium">Kcal</span>
             <span className="tabular-nums text-2xl font-bold">
               {r(computedKcal)}
             </span>
