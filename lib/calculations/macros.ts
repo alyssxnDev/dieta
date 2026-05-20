@@ -40,21 +40,36 @@ export function mealTotals(
   )
 }
 
-/** Planejado: todas as refeições. Consumido: só as marcadas. */
+/**
+ * Planejado: todos os items de todas as refeições.
+ * Consumido: só os items cujo ID está em `completedItemIds`.
+ */
 export function dayTotals(
   meals: MealTemplateWithItems[],
-  completedIds?: Set<string>,
+  completedItemIds?: Set<string>,
 ): { planned: MealTotals; consumed: MealTotals } {
   let planned = ZERO
   let consumed = ZERO
   for (const meal of meals) {
-    const t = mealTotals(meal.items)
-    planned = sumTotals(planned, t)
-    if (completedIds?.has(meal.id)) {
-      consumed = sumTotals(consumed, t)
+    for (const item of meal.items) {
+      const t = normalizeFoodItem(item.food, item.quantity)
+      planned = sumTotals(planned, t)
+      if (completedItemIds?.has(item.id)) {
+        consumed = sumTotals(consumed, t)
+      }
     }
   }
   return { planned, consumed }
+}
+
+/** Quantos items de uma refeição estão marcados. */
+export function mealProgress(
+  meal: MealTemplateWithItems,
+  completedItemIds: Set<string>,
+): { completed: number; total: number; allDone: boolean } {
+  const total = meal.items.length
+  const completed = meal.items.filter((it) => completedItemIds.has(it.id)).length
+  return { completed, total, allDone: total > 0 && completed === total }
 }
 
 /** Arredondamento de display (1 casa pra kcal/macros). */

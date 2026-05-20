@@ -1,9 +1,19 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { Check, Clock } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { Check, ChevronDown, Clock } from "lucide-react"
+import { useState } from "react"
 
-import { mealTotals, r } from "@/lib/calculations/macros"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { normalizeFoodItem, r } from "@/lib/calculations/macros"
 import { haptic } from "@/lib/haptic"
 import { cn } from "@/lib/utils"
 import type { MealTemplateWithItems } from "@/types/database"
@@ -12,84 +22,244 @@ const UNIT_LABEL = { g: "g", ml: "ml", unit: "un" } as const
 
 export function TodayMealCard({
   meal,
-  completed,
+  completedItemIds,
   late,
-  onToggle,
   accentColor,
+  onToggleItem,
+  onToggleAll,
 }: {
   meal: MealTemplateWithItems
-  completed: boolean
+  completedItemIds: Set<string>
   late: boolean
-  onToggle: () => void
   accentColor: string
+  onToggleItem: (itemId: string, currentlyCompleted: boolean) => void
+  onToggleAll: (complete: boolean) => void
 }) {
-  const totals = mealTotals(meal.items)
+  const [expanded, setExpanded] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  const total = meal.items.length
+  const completed = meal.items.filter((it) => completedItemIds.has(it.id)).length
+  const allDone = total > 0 && completed === total
+  const partial = completed > 0 && !allDone
+  const consumed = meal.items
+    .filter((it) => completedItemIds.has(it.id))
+    .reduce((acc, it) => acc + normalizeFoodItem(it.food, it.quantity).kcal, 0)
   const time = meal.time?.slice(0, 5)
+
+  const toggleExpand = () => {
+    haptic(6)
+    setExpanded((v) => !v)
+  }
+
+  const onBulkConfirm = () => {
+    haptic(12)
+    onToggleAll(!allDone)
+    setConfirmOpen(false)
+  }
 
   return (
     <motion.div
-      animate={{ opacity: completed ? 0.55 : 1 }}
-      className="bg-card flex items-stretch gap-3 rounded-2xl border border-zinc-800 p-3"
+      animate={{ opacity: allDone ? 0.7 : 1 }}
+      className="bg-card flex flex-col overflow-hidden rounded-2xl border border-border"
     >
+      {/* Header colapsável */}
       <button
         type="button"
-        onClick={() => {
-          haptic(10)
-          onToggle()
-        }}
-        aria-pressed={completed}
-        aria-label={completed ? "Desmarcar refeição" : "Marcar refeição"}
-        className="flex shrink-0 items-center justify-center self-center"
+        onClick={toggleExpand}
+        className="hover:bg-muted/40 flex items-center gap-3 px-4 py-3 text-left transition-colors"
+        aria-expanded={expanded}
       >
-        <motion.div
-          initial={false}
-          animate={{ scale: completed ? 1 : 0.9 }}
-          transition={{ type: "spring", stiffness: 500, damping: 18 }}
-          className={cn(
-            "flex size-9 items-center justify-center rounded-full border-2 transition-colors",
-            completed
-              ? "border-transparent bg-emerald-500 text-zinc-950"
-              : "border-zinc-700",
-          )}
-        >
-          {completed && <Check className="size-5" strokeWidth={3} />}
-        </motion.div>
-      </button>
+        <StatusBadge
+          allDone={allDone}
+          partial={partial}
+          completed={completed}
+          total={total}
+          accentColor={accentColor}
+        />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate font-medium">{meal.name}</p>
-          <div className="flex items-center gap-1.5">
-            {late && !completed && (
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
-                atrasada
-              </span>
-            )}
-            {time && (
-              <span className="text-muted-foreground tabular-nums flex items-center gap-1 text-xs">
-                <Clock className="size-3" />
-                {time}
-              </span>
-            )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate font-medium">{meal.name}</span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {late && !allDone && (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                  atrasada
+                </span>
+              )}
+              {time && (
+                <span className="text-muted-foreground tabular-nums flex items-center gap-1 text-xs">
+                  <Clock className="size-3" />
+                  {time}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-muted-foreground tabular-nums flex items-baseline gap-2 text-xs">
+            <span>
+              <span
+                className={cn(
+                  "font-medium",
+                  allDone ? "text-emerald-600" : partial ? "" : "",
+                )}
+                style={partial && !allDone ? { color: accentColor } : undefined}
+              >
+                {completed}/{total}
+              </span>{" "}
+              {total === 1 ? "item" : "itens"}
+            </span>
+            {consumed > 0 && <span>· {r(consumed)} kcal</span>}
           </div>
         </div>
-        {meal.items.length > 0 ? (
-          <p className="text-muted-foreground line-clamp-2 text-xs">
-            {meal.items
-              .map(
-                (it) =>
-                  `${it.food.name} ${r(it.quantity)}${UNIT_LABEL[it.food.measure_type]}`,
-              )
-              .join(" · ")}
-          </p>
-        ) : (
-          <p className="text-muted-foreground/60 text-xs italic">Sem alimentos</p>
+
+        <ChevronDown
+          className={cn(
+            "text-muted-foreground size-4 shrink-0 transition-transform",
+            expanded && "rotate-180",
+          )}
+        />
+      </button>
+
+      {/* Items expandidos */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="border-border flex flex-col gap-1 border-t px-2 py-2">
+              {meal.items.length === 0 ? (
+                <p className="text-muted-foreground py-3 text-center text-xs">
+                  Sem alimentos cadastrados nesta refeição.
+                </p>
+              ) : (
+                meal.items.map((it) => {
+                  const done = completedItemIds.has(it.id)
+                  const macros = normalizeFoodItem(it.food, it.quantity)
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => {
+                        haptic(8)
+                        onToggleItem(it.id, done)
+                      }}
+                      className="hover:bg-muted/50 flex items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors"
+                      aria-pressed={done}
+                    >
+                      <motion.div
+                        initial={false}
+                        animate={{ scale: done ? 1 : 0.92 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                        className={cn(
+                          "flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                          done
+                            ? "border-transparent bg-emerald-500 text-zinc-950"
+                            : "border-border",
+                        )}
+                      >
+                        {done && <Check className="size-3.5" strokeWidth={3} />}
+                      </motion.div>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={cn(
+                            "text-sm",
+                            done && "text-muted-foreground line-through",
+                          )}
+                        >
+                          {it.food.name}
+                        </p>
+                        <p className="text-muted-foreground tabular-nums text-[11px]">
+                          {r(it.quantity)}
+                          {UNIT_LABEL[it.food.measure_type]} · {r(macros.kcal)} kcal
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+
+              {meal.items.length > 0 && (
+                <Button
+                  variant={allDone ? "secondary" : "default"}
+                  size="sm"
+                  onClick={() => setConfirmOpen(true)}
+                  className="mx-2 mt-1 mb-1"
+                >
+                  {allDone ? "Desmarcar refeição inteira" : "Marcar refeição inteira"}
+                </Button>
+              )}
+            </div>
+          </motion.div>
         )}
-        <p className="text-muted-foreground tabular-nums mt-1 text-xs" style={{ color: completed ? undefined : accentColor }}>
-          {r(totals.kcal)} kcal · C {r(totals.carb_g)}g · P {r(totals.protein_g)}g · G{" "}
-          {r(totals.fat_g)}g
-        </p>
-      </div>
+      </AnimatePresence>
+
+      {/* Sheet de confirmação pra ação em massa */}
+      <Sheet open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <SheetContent side="bottom" className="max-h-[50dvh]">
+          <SheetHeader>
+            <SheetTitle>
+              {allDone ? "Desmarcar refeição inteira?" : "Marcar refeição inteira?"}
+            </SheetTitle>
+            <SheetDescription>
+              {allDone
+                ? `Vai desmarcar todos os ${total} itens de ${meal.name}.`
+                : `Vai marcar todos os ${total} itens de ${meal.name} como consumidos.`}
+            </SheetDescription>
+          </SheetHeader>
+          <SheetFooter className="flex-row gap-2 px-4 pb-4">
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmOpen(false)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button onClick={onBulkConfirm} className="flex-1">
+              {allDone ? "Desmarcar tudo" : "Marcar tudo"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </motion.div>
+  )
+}
+
+function StatusBadge({
+  allDone,
+  partial,
+  completed,
+  total,
+  accentColor,
+}: {
+  allDone: boolean
+  partial: boolean
+  completed: number
+  total: number
+  accentColor: string
+}) {
+  if (allDone) {
+    return (
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-zinc-950">
+        <Check className="size-5" strokeWidth={3} />
+      </div>
+    )
+  }
+  return (
+    <div
+      className="flex size-10 shrink-0 items-center justify-center rounded-full border-2"
+      style={
+        partial
+          ? { borderColor: accentColor, color: accentColor }
+          : { borderColor: "var(--border)" }
+      }
+    >
+      <span className="tabular-nums text-[11px] font-semibold">
+        {completed}/{total}
+      </span>
+    </div>
   )
 }

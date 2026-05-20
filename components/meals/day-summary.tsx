@@ -16,7 +16,7 @@ export function DaySummary({
   return (
     <section
       aria-label="Resumo do dia"
-      className="bg-card flex flex-col gap-3 rounded-2xl border border-zinc-800 p-4"
+      className="bg-card flex flex-col gap-3 rounded-2xl border border-border p-4"
     >
       <KcalBar
         consumed={consumed.kcal}

@@ -23,7 +23,7 @@ export function StreakCard({
   const Icon = ICONS[kind]
   const active = count > 0
   return (
-    <div className="bg-card flex flex-col gap-2 rounded-2xl border border-zinc-800 p-4">
+    <div className="bg-card flex flex-col gap-2 rounded-2xl border border-border p-4">
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground text-xs uppercase tracking-wide">
           {label}

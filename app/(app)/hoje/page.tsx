@@ -10,9 +10,10 @@ import { dayTotals } from "@/lib/calculations/macros"
 import { formatLongDate, today, toIsoDate } from "@/lib/date"
 import { useActiveProfile } from "@/lib/hooks/use-active-profile"
 import {
-  useMealCompletions,
+  useMealItemCompletions,
   useMealTemplatesByDay,
-  useToggleMealCompletion,
+  useToggleAllMealItems,
+  useToggleMealItemCompletion,
 } from "@/lib/queries/meals"
 
 export default function HojePage() {
@@ -24,17 +25,18 @@ export default function HojePage() {
     active?.id ?? null,
     dow,
   )
-  const { data: completions } = useMealCompletions(active?.id ?? null, date)
-  const toggle = useToggleMealCompletion()
+  const { data: completions } = useMealItemCompletions(active?.id ?? null, date)
+  const toggleItem = useToggleMealItemCompletion()
+  const toggleAll = useToggleAllMealItems()
 
-  const completedIds = useMemo(
-    () => new Set((completions ?? []).map((c) => c.meal_template_id)),
+  const completedItemIds = useMemo(
+    () => new Set((completions ?? []).map((c) => c.meal_template_item_id)),
     [completions],
   )
 
   const totals = useMemo(
-    () => dayTotals(meals ?? [], completedIds),
-    [meals, completedIds],
+    () => dayTotals(meals ?? [], completedItemIds),
+    [meals, completedItemIds],
   )
 
   const now = new Date()
@@ -42,7 +44,6 @@ export default function HojePage() {
 
   const sortedMeals = useMemo(() => {
     return [...(meals ?? [])].sort((a, b) => {
-      // sem time vai pro fim, depois ordena por time/order_index
       if (!a.time && !b.time) return a.order_index - b.order_index
       if (!a.time) return 1
       if (!b.time) return -1
@@ -64,8 +65,8 @@ export default function HojePage() {
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-4 text-center">
         <p className="text-muted-foreground text-sm">
-          Nenhum perfil encontrado. Roda o `sql/schema.sql` no Supabase
-          (cria os seeds dos 2 perfis).
+          Nenhum perfil encontrado. Roda o <code>sql/schema.sql</code> no
+          Supabase (cria os seeds dos 2 perfis).
         </p>
       </main>
     )
@@ -82,21 +83,24 @@ export default function HojePage() {
         </h1>
       </header>
 
-      <DaySummary profile={active} consumed={totals.consumed} planned={totals.planned} />
+      <DaySummary
+        profile={active}
+        consumed={totals.consumed}
+        planned={totals.planned}
+      />
 
       <section aria-label="Refeições" className="flex flex-col gap-2">
         {mealsLoading ? (
           <>
-            <Skeleton className="h-24 rounded-2xl" />
-            <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-20 rounded-2xl" />
+            <Skeleton className="h-20 rounded-2xl" />
           </>
         ) : sortedMeals.length === 0 ? (
-          <p className="text-muted-foreground bg-card rounded-2xl border border-zinc-800 px-4 py-6 text-center text-sm">
+          <p className="text-muted-foreground bg-card rounded-2xl border border-border px-4 py-6 text-center text-sm">
             Sem refeições planejadas pra hoje. Cria no Planner.
           </p>
         ) : (
           sortedMeals.map((m) => {
-            const completed = completedIds.has(m.id)
             const mealMin = m.time
               ? Number(m.time.slice(0, 2)) * 60 + Number(m.time.slice(3, 5))
               : null
@@ -105,15 +109,23 @@ export default function HojePage() {
               <TodayMealCard
                 key={m.id}
                 meal={m}
-                completed={completed}
+                completedItemIds={completedItemIds}
                 late={late}
                 accentColor={active.color}
-                onToggle={() =>
-                  toggle.mutate({
+                onToggleItem={(itemId, currentlyCompleted) =>
+                  toggleItem.mutate({
                     profileId: active.id,
-                    mealId: m.id,
+                    mealItemId: itemId,
                     date,
-                    currentlyCompleted: completed,
+                    currentlyCompleted,
+                  })
+                }
+                onToggleAll={(complete) =>
+                  toggleAll.mutate({
+                    profileId: active.id,
+                    mealItemIds: m.items.map((it) => it.id),
+                    date,
+                    complete,
                   })
                 }
               />

@@ -108,7 +108,7 @@ export function MealFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Nova refeição</SheetTitle>
           <SheetDescription>
@@ -139,7 +139,7 @@ export function MealFormSheet({
             <Input id="time" type="time" {...register("time")} />
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-zinc-800 px-3 py-2">
+          <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2">
             <div>
               <p className="text-sm">Notificar</p>
               <p className="text-muted-foreground text-xs">
@@ -175,7 +175,7 @@ export function MealFormSheet({
                       "rounded-lg border py-2 text-xs font-medium transition-colors",
                       selected
                         ? "bg-primary text-primary-foreground border-transparent"
-                        : "border-zinc-800 text-muted-foreground",
+                        : "border-border text-muted-foreground",
                     )}
                     aria-pressed={selected}
                   >

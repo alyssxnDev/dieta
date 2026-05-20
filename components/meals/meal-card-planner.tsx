@@ -21,8 +21,9 @@ export function MealCardPlanner({
     <button
       type="button"
       onClick={onClick}
-      className="bg-card hover:border-zinc-700 flex w-full flex-col gap-2 rounded-2xl border border-zinc-800 px-4 py-3 text-left transition-colors"
+      className="bg-card hover:bg-muted/30 flex w-full flex-col gap-3 rounded-2xl border border-border px-4 py-3 text-left transition-colors"
     >
+      {/* Cabeçalho: nome + horário */}
       <div className="flex items-baseline justify-between gap-2">
         <p className="truncate font-medium">{meal.name}</p>
         {time && (
@@ -32,22 +33,59 @@ export function MealCardPlanner({
           </span>
         )}
       </div>
+
+      {/* Totais — em cima dos itens */}
+      <div className="grid grid-cols-4 gap-1.5 text-center">
+        <Stat label="kcal" value={r(totals.kcal)} bold />
+        <Stat label="C" value={`${r(totals.carb_g)}g`} />
+        <Stat label="P" value={`${r(totals.protein_g)}g`} />
+        <Stat label="G" value={`${r(totals.fat_g)}g`} />
+      </div>
+
+      {/* Lista vertical de alimentos */}
       {meal.items.length > 0 ? (
-        <p className="text-muted-foreground line-clamp-2 text-xs">
-          {meal.items
-            .map(
-              (it) =>
-                `${it.food.name} ${r(it.quantity)}${UNIT_LABEL[it.food.measure_type]}`,
-            )
-            .join(" · ")}
-        </p>
+        <ul className="border-border flex flex-col gap-1 border-t pt-2 text-xs">
+          {meal.items.map((it) => (
+            <li
+              key={it.id}
+              className="text-muted-foreground flex items-center justify-between gap-2"
+            >
+              <span className="truncate">{it.food.name}</span>
+              <span className="tabular-nums shrink-0">
+                {r(it.quantity)}
+                {UNIT_LABEL[it.food.measure_type]}
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <p className="text-muted-foreground/60 text-xs italic">Sem alimentos</p>
+        <p className="text-muted-foreground/60 border-border border-t pt-2 text-xs italic">
+          Sem alimentos — toque pra adicionar
+        </p>
       )}
-      <p className="text-muted-foreground tabular-nums text-xs">
-        {r(totals.kcal)} kcal · C {r(totals.carb_g)}g · P {r(totals.protein_g)}g · G{" "}
-        {r(totals.fat_g)}g
-      </p>
     </button>
+  )
+}
+
+function Stat({
+  label,
+  value,
+  bold,
+}: {
+  label: string
+  value: string | number
+  bold?: boolean
+}) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-muted-foreground text-[10px] uppercase">
+        {label}
+      </span>
+      <span
+        className={`tabular-nums text-sm ${bold ? "font-semibold" : ""}`}
+      >
+        {value}
+      </span>
+    </div>
   )
 }

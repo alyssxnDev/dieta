@@ -111,7 +111,7 @@ export default function AlimentosPage() {
       <Button
         size="icon-lg"
         onClick={openNew}
-        className="pb-safe fixed right-4 bottom-20 z-30 size-14 rounded-full shadow-lg"
+        className="bottom-fab fixed right-4 z-30 size-14 rounded-full shadow-lg"
         aria-label="Novo alimento"
       >
         <Plus />
@@ -129,7 +129,7 @@ export default function AlimentosPage() {
 function EmptyState({ hasFoods, onAdd }: { hasFoods: boolean; onAdd: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center">
-      <div className="bg-card flex h-14 w-14 items-center justify-center rounded-full border border-zinc-800">
+      <div className="bg-card flex h-14 w-14 items-center justify-center rounded-full border border-border">
         <Apple className="text-muted-foreground size-6" />
       </div>
       <p className="text-muted-foreground text-sm">

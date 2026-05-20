@@ -41,7 +41,7 @@ export function ProfileSwitcher() {
               animate={{ scale: isActive ? 1.0 : 0.78, opacity: isActive ? 1 : 0.5 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-zinc-950 ring-zinc-950",
+                "flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-zinc-950 ring-foreground/10",
                 isActive && "ring-2 ring-offset-2 ring-offset-background",
               )}
               style={{ backgroundColor: p.color, boxShadow: isActive ? `0 0 0 2px ${p.color}` : undefined }}

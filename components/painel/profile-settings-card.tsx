@@ -47,7 +47,7 @@ export function ProfileSettingsCard({ profile }: { profile: Profile }) {
   return (
     <section
       aria-label="Configurações do perfil"
-      className="bg-card flex flex-col gap-4 rounded-2xl border border-zinc-800 p-4"
+      className="bg-card flex flex-col gap-4 rounded-2xl border border-border p-4"
     >
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export function ProfileSettingsCard({ profile }: { profile: Profile }) {
         />
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 p-3">
+      <div className="flex flex-col gap-3 rounded-xl border border-border p-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm">Lembretes de água</p>

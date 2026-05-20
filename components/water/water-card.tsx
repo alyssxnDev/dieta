@@ -66,17 +66,17 @@ export function WaterCard({
     <>
       <section
         aria-label="Água"
-        className="bg-card flex flex-col gap-3 rounded-2xl border border-zinc-800 p-4"
+        className="bg-card flex flex-col gap-3 rounded-2xl border border-border p-4"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-full bg-sky-500/15">
-              <Droplet className="size-4 text-sky-400" />
+              <Droplet className="size-4 text-sky-600" />
             </div>
             <span className="font-medium">Água</span>
           </div>
           <span className="tabular-nums text-sm">
-            <span className={cn("font-semibold", hit && "text-emerald-400")}>
+            <span className={cn("font-semibold", hit && "text-emerald-600")}>
               {total}
             </span>
             <span className="text-muted-foreground"> / {goal} ml</span>
@@ -85,7 +85,7 @@ export function WaterCard({
 
         <div className="bg-muted h-2 overflow-hidden rounded-full">
           <div
-            className="h-full bg-sky-400 transition-all"
+            className="h-full bg-sky-500 transition-all"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -125,7 +125,7 @@ export function WaterCard({
         )}
 
         {reminders.length > 0 && (
-          <div className="border-t border-zinc-800 pt-3">
+          <div className="border-t border-border pt-3">
             <p className="text-muted-foreground mb-1.5 text-[10px] uppercase tracking-wide">
               Lembretes (informativo)
             </p>
@@ -144,7 +144,7 @@ export function WaterCard({
       </section>
 
       <Sheet open={customOpen} onOpenChange={setCustomOpen}>
-        <SheetContent side="bottom" className="max-h-[50vh]">
+        <SheetContent side="bottom" className="max-h-[50dvh]">
           <SheetHeader>
             <SheetTitle>Adicionar quantidade</SheetTitle>
           </SheetHeader>

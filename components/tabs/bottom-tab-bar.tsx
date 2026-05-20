@@ -21,9 +21,10 @@ export function BottomTabBar({ accent }: { accent?: string }) {
   return (
     <nav
       aria-label="Navegação principal"
-      className="pb-safe bg-background/85 fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800 backdrop-blur-xl"
+      className="bg-background/85 fixed inset-x-0 bottom-0 z-40 border-t border-border backdrop-blur-xl"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="mx-auto grid h-16 max-w-xl grid-cols-4">
+      <ul className="mx-auto grid h-14 max-w-xl grid-cols-4">
         {TABS.map((t) => {
           const active = pathname === t.href || pathname.startsWith(`${t.href}/`)
           const Icon = t.icon

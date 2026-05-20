@@ -51,10 +51,12 @@ export interface MealTemplateItem {
   order_index: number
 }
 
-export interface MealCompletion {
+/** Substituiu MealCompletion. Agora marcamos por ITEM (banana, aveia, etc).
+ *  Refeição "completa" = todos seus items marcados no dia. */
+export interface MealItemCompletion {
   id: string
   profile_id: string
-  meal_template_id: string
+  meal_template_item_id: string
   date: string // YYYY-MM-DD
   completed_at: string
 }

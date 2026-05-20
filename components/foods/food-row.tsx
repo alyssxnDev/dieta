@@ -28,7 +28,7 @@ export function FoodRow({
   onDelete: () => void
 }) {
   return (
-    <div className="bg-card flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 px-4 py-3">
+    <div className="bg-card flex items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{food.name}</p>
         <p className="text-muted-foreground tabular-nums truncate text-xs">

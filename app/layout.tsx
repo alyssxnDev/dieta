@@ -24,7 +24,10 @@ export const metadata: Metadata = {
   applicationName: "Dieta",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    // 'default' = barra opaca clara com ícones escuros (combina com tema light).
+    // 'black-translucent' deixava o conteúdo passar por baixo do notch — em
+    // light mode os ícones do iOS ficam invisíveis sobre fundo claro.
+    statusBarStyle: "default",
     title: "Dieta",
   },
   formatDetection: {
@@ -45,7 +48,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#09090b",
+  interactiveWidget: "resizes-content",
+  themeColor: "#fafafa",
 }
 
 export default function RootLayout({
@@ -56,10 +60,10 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body className="bg-background text-foreground min-h-full flex flex-col">
+      <body className="bg-background text-foreground flex min-h-dvh flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>

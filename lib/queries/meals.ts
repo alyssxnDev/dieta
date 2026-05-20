@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import type {
   Food,
-  MealCompletion,
+  MealItemCompletion,
   MealTemplate,
   MealTemplateItem,
   MealTemplateWithItems,
@@ -44,7 +44,6 @@ export function useMealTemplatesByDay(
         .order("order_index", { ascending: true })
         .order("time", { ascending: true, nullsFirst: false })
       if (error) throw error
-      // Ordena items dentro de cada meal
       return ((data ?? []) as unknown as MealTemplateWithItems[]).map((m) => ({
         ...m,
         items: [...m.items].sort((a, b) => a.order_index - b.order_index),
@@ -53,7 +52,7 @@ export function useMealTemplatesByDay(
   })
 }
 
-// ---------- Meal Template (refeição) ----------
+// ---------- Meal Template ----------
 
 type MealTemplateInput = Omit<MealTemplate, "id" | "created_at" | "order_index">
 
@@ -119,7 +118,6 @@ export function useDeleteMealTemplate() {
   })
 }
 
-/** Replica uma refeição existente em N novos dias da semana (gera 1 registro por dia). */
 export function useReplicateMealToDays() {
   const qc = useQueryClient()
   return useMutation({
@@ -129,7 +127,6 @@ export function useReplicateMealToDays() {
       targetDays: number[]
     }): Promise<void> => {
       const supabase = createClient()
-      // 1. Lê a meal source com items
       const { data: source, error: e1 } = await supabase
         .from("meal_templates")
         .select(
@@ -143,7 +140,6 @@ export function useReplicateMealToDays() {
         items: { food_id: string; quantity: number; order_index: number }[]
       }
 
-      // 2. Cria 1 meal_template por dia alvo
       const newMeals = input.targetDays.map((d) => ({
         profile_id: src.profile_id,
         day_of_week: d,
@@ -158,7 +154,6 @@ export function useReplicateMealToDays() {
         .select("id, day_of_week")
       if (e2) throw e2
 
-      // 3. Para cada meal nova, insere os items
       const itemRows = (created ?? []).flatMap((m) =>
         src.items.map((it) => ({
           meal_template_id: m.id,
@@ -179,7 +174,7 @@ export function useReplicateMealToDays() {
   })
 }
 
-// ---------- Meal Template Items (alimentos dentro da refeição) ----------
+// ---------- Meal Template Items ----------
 
 export function useAddMealItem() {
   const qc = useQueryClient()
@@ -204,6 +199,59 @@ export function useAddMealItem() {
         .single()
       if (error) throw error
       return data as MealTemplateItem
+    },
+    onSuccess: (_, input) =>
+      qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
+  })
+}
+
+/**
+ * Adiciona MESMO alimento+quantity em TODAS as meal_templates do perfil que
+ * tenham o mesmo nome (case-insensitive) da meal de referência. Útil pra
+ * "banana toda segunda" → "banana em todas as refeições 'Café da manhã'".
+ */
+export function useAddMealItemToAllByName() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      profileId: string
+      mealName: string
+      foodId: string
+      quantity: number
+    }): Promise<number> => {
+      const supabase = createClient()
+      // 1. acha todas as refeições com aquele nome desse perfil
+      const { data: meals, error: e1 } = await supabase
+        .from("meal_templates")
+        .select("id")
+        .eq("profile_id", input.profileId)
+        .ilike("name", input.mealName)
+      if (e1) throw e1
+      if (!meals || meals.length === 0) return 0
+      // 2. pra cada, pega o maior order_index dos items existentes (1 query agregado)
+      const ids = meals.map((m) => m.id)
+      const { data: existing, error: e2 } = await supabase
+        .from("meal_template_items")
+        .select("meal_template_id, order_index")
+        .in("meal_template_id", ids)
+      if (e2) throw e2
+      const maxByMeal = new Map<string, number>()
+      for (const it of existing ?? []) {
+        const cur = maxByMeal.get(it.meal_template_id) ?? -1
+        if (it.order_index > cur) maxByMeal.set(it.meal_template_id, it.order_index)
+      }
+      // 3. insere 1 item por meal
+      const rows = meals.map((m) => ({
+        meal_template_id: m.id,
+        food_id: input.foodId,
+        quantity: input.quantity,
+        order_index: (maxByMeal.get(m.id) ?? -1) + 1,
+      }))
+      const { error: e3 } = await supabase
+        .from("meal_template_items")
+        .insert(rows)
+      if (e3) throw e3
+      return rows.length
     },
     onSuccess: (_, input) =>
       qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
@@ -246,69 +294,68 @@ export function useDeleteMealItem() {
   })
 }
 
-// ---------- Completions ----------
+// ---------- Item Completions ----------
 
-export function useMealCompletions(profileId: string | null, date: string) {
+export function useMealItemCompletions(profileId: string | null, date: string) {
   return useQuery({
     enabled: !!profileId,
     queryKey: mealKeys.completions(profileId ?? "_", date),
-    queryFn: async (): Promise<MealCompletion[]> => {
+    queryFn: async (): Promise<MealItemCompletion[]> => {
       if (!profileId) return []
       const supabase = createClient()
       const { data, error } = await supabase
-        .from("meal_completions")
+        .from("meal_item_completions")
         .select("*")
         .eq("profile_id", profileId)
         .eq("date", date)
       if (error) throw error
-      return (data ?? []) as MealCompletion[]
+      return (data ?? []) as MealItemCompletion[]
     },
   })
 }
 
-export function useToggleMealCompletion() {
+export function useToggleMealItemCompletion() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: {
       profileId: string
-      mealId: string
+      mealItemId: string
       date: string
       currentlyCompleted: boolean
     }): Promise<void> => {
       const supabase = createClient()
       if (input.currentlyCompleted) {
         const { error } = await supabase
-          .from("meal_completions")
+          .from("meal_item_completions")
           .delete()
           .eq("profile_id", input.profileId)
-          .eq("meal_template_id", input.mealId)
+          .eq("meal_template_item_id", input.mealItemId)
           .eq("date", input.date)
         if (error) throw error
       } else {
-        const { error } = await supabase.from("meal_completions").insert({
+        const { error } = await supabase.from("meal_item_completions").insert({
           profile_id: input.profileId,
-          meal_template_id: input.mealId,
+          meal_template_item_id: input.mealItemId,
           date: input.date,
         })
         if (error) throw error
       }
     },
     onMutate: async (input) => {
-      // Optimistic: alterna na cache de completions imediatamente.
       const key = mealKeys.completions(input.profileId, input.date)
       await qc.cancelQueries({ queryKey: key })
-      const prev = qc.getQueryData<MealCompletion[]>(key) ?? []
+      const prev = qc.getQueryData<MealItemCompletion[]>(key) ?? []
       const next = input.currentlyCompleted
-        ? prev.filter((c) => c.meal_template_id !== input.mealId)
+        ? prev.filter((c) => c.meal_template_item_id !== input.mealItemId)
         : [
             ...prev,
             {
-              id: `optimistic-${input.mealId}`,
+              id: `optimistic-${input.mealItemId}`,
               profile_id: input.profileId,
-              meal_template_id: input.mealId,
+              meal_template_item_id: input.mealItemId,
               date: input.date,
               completed_at: new Date().toISOString(),
-            } as MealCompletion,
+            } as MealItemCompletion,
           ]
       qc.setQueryData(key, next)
       return { prev }
@@ -329,8 +376,52 @@ export function useToggleMealCompletion() {
   })
 }
 
+/** Marca/desmarca TODOS os itens de uma refeição num dia (bulk action). */
+export function useToggleAllMealItems() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      profileId: string
+      mealItemIds: string[]
+      date: string
+      /** Se true: completa tudo. Se false: desmarca tudo. */
+      complete: boolean
+    }): Promise<void> => {
+      if (input.mealItemIds.length === 0) return
+      const supabase = createClient()
+      if (input.complete) {
+        const rows = input.mealItemIds.map((id) => ({
+          profile_id: input.profileId,
+          meal_template_item_id: id,
+          date: input.date,
+        }))
+        // upsert pra ignorar duplicatas (item já marcado)
+        const { error } = await supabase
+          .from("meal_item_completions")
+          .upsert(rows, {
+            onConflict: "profile_id,meal_template_item_id,date",
+            ignoreDuplicates: true,
+          })
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from("meal_item_completions")
+          .delete()
+          .eq("profile_id", input.profileId)
+          .eq("date", input.date)
+          .in("meal_template_item_id", input.mealItemIds)
+        if (error) throw error
+      }
+    },
+    onSuccess: (_, input) =>
+      qc.invalidateQueries({
+        queryKey: mealKeys.completions(input.profileId, input.date),
+      }),
+  })
+}
+
 /** Completions num range (pra painel/streaks). */
-export function useMealCompletionsRange(
+export function useMealItemCompletionsRange(
   profileId: string | null,
   fromDate: string,
   toDate: string,
@@ -338,22 +429,21 @@ export function useMealCompletionsRange(
   return useQuery({
     enabled: !!profileId,
     queryKey: mealKeys.completionsRange(profileId ?? "_", fromDate, toDate),
-    queryFn: async (): Promise<MealCompletion[]> => {
+    queryFn: async (): Promise<MealItemCompletion[]> => {
       if (!profileId) return []
       const supabase = createClient()
       const { data, error } = await supabase
-        .from("meal_completions")
+        .from("meal_item_completions")
         .select("*")
         .eq("profile_id", profileId)
         .gte("date", fromDate)
         .lte("date", toDate)
       if (error) throw error
-      return (data ?? []) as MealCompletion[]
+      return (data ?? []) as MealItemCompletion[]
     },
   })
 }
 
-/** Templates de TODOS os 7 dias (usado pra calcular streak/planejado). */
 export function useAllMealTemplates(profileId: string | null) {
   return useQuery({
     enabled: !!profileId,
@@ -387,5 +477,4 @@ export function useAllMealTemplates(profileId: string | null) {
   })
 }
 
-// Re-export tipo conveniente
 export type { Food, MealTemplate, MealTemplateItem, MealTemplateWithItems }

@@ -112,7 +112,7 @@ export function MealDetailSheet({
           onOpenChange(o)
         }}
       >
-        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
+        <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar refeição</SheetTitle>
             <SheetDescription>
@@ -166,7 +166,7 @@ export function MealDetailSheet({
                 </span>
               </div>
               {meal.items.length === 0 ? (
-                <p className="text-muted-foreground bg-card rounded-xl border border-zinc-800 px-3 py-4 text-center text-xs">
+                <p className="text-muted-foreground bg-card rounded-xl border border-border px-3 py-4 text-center text-xs">
                   Sem alimentos. Adiciona o primeiro.
                 </p>
               ) : (
@@ -176,7 +176,7 @@ export function MealDetailSheet({
                     return (
                       <li
                         key={it.id}
-                        className="bg-card flex items-center gap-2 rounded-xl border border-zinc-800 px-3 py-2"
+                        className="bg-card flex items-center gap-2 rounded-xl border border-border px-3 py-2"
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm">{it.food.name}</p>
@@ -244,11 +244,12 @@ export function MealDetailSheet({
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onPicked={handlePicked}
+        replicateContext={{ profileId: meal.profile_id, mealName: meal.name }}
       />
 
       {/* Replicate sheet */}
       <Sheet open={replicateOpen} onOpenChange={setReplicateOpen}>
-        <SheetContent side="bottom" className="max-h-[60vh]">
+        <SheetContent side="bottom" className="max-h-[60dvh]">
           <SheetHeader>
             <SheetTitle>Replicar pra outros dias</SheetTitle>
             <SheetDescription>
@@ -272,7 +273,7 @@ export function MealDetailSheet({
                       "rounded-lg border py-2 text-xs font-medium transition-colors",
                       sel
                         ? "bg-primary text-primary-foreground border-transparent"
-                        : "border-zinc-800 text-muted-foreground",
+                        : "border-border text-muted-foreground",
                     )}
                   >
                     {dayName(d).slice(0, 1)}

@@ -22,7 +22,7 @@ export function AccountCard() {
   return (
     <section
       aria-label="Conta"
-      className="bg-card flex flex-col gap-3 rounded-2xl border border-zinc-800 p-4"
+      className="bg-card flex flex-col gap-3 rounded-2xl border border-border p-4"
     >
       <header className="flex items-center gap-2">
         <User className="text-muted-foreground size-4" />

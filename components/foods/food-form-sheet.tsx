@@ -17,6 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { r } from "@/lib/calculations/macros"
 import { useCreateFood, useUpdateFood } from "@/lib/queries/foods"
 import type { Food, MeasureType } from "@/types/database"
 
@@ -24,7 +25,6 @@ const schema = z.object({
   name: z.string().min(1, "Obrigatório").max(120),
   measure_type: z.enum(["g", "ml", "unit"]),
   reference_quantity: z.number().positive("Maior que 0"),
-  kcal: z.number().nonnegative(),
   carb_g: z.number().nonnegative(),
   protein_g: z.number().nonnegative(),
   fat_g: z.number().nonnegative(),
@@ -37,6 +37,23 @@ const MEASURES: { value: MeasureType; label: string }[] = [
   { value: "ml", label: "ml" },
   { value: "unit", label: "un" },
 ]
+
+/** Atwater factors. Carb e proteína: 4 kcal/g. Gordura: 9 kcal/g. */
+function deriveKcal({
+  carb_g,
+  protein_g,
+  fat_g,
+}: {
+  carb_g: number
+  protein_g: number
+  fat_g: number
+}) {
+  return (
+    (Number.isFinite(carb_g) ? carb_g : 0) * 4 +
+    (Number.isFinite(protein_g) ? protein_g : 0) * 4 +
+    (Number.isFinite(fat_g) ? fat_g : 0) * 9
+  )
+}
 
 export function FoodFormSheet({
   open,
@@ -63,14 +80,12 @@ export function FoodFormSheet({
       name: "",
       measure_type: "g",
       reference_quantity: 100,
-      kcal: 0,
       carb_g: 0,
       protein_g: 0,
       fat_g: 0,
     },
   })
 
-  // Sincroniza valores quando trocar de initial / abrir
   useEffect(() => {
     if (!open) return
     reset(
@@ -79,7 +94,6 @@ export function FoodFormSheet({
             name: initial.name,
             measure_type: initial.measure_type,
             reference_quantity: initial.reference_quantity,
-            kcal: initial.kcal,
             carb_g: initial.carb_g,
             protein_g: initial.protein_g,
             fat_g: initial.fat_g,
@@ -88,7 +102,6 @@ export function FoodFormSheet({
             name: "",
             measure_type: "g",
             reference_quantity: 100,
-            kcal: 0,
             carb_g: 0,
             protein_g: 0,
             fat_g: 0,
@@ -97,23 +110,29 @@ export function FoodFormSheet({
   }, [open, initial, reset])
 
   const onSubmit = async (values: FormData) => {
+    const kcal = deriveKcal(values)
+    const payload = { ...values, kcal }
     if (initial) {
-      await update.mutateAsync({ id: initial.id, patch: values })
+      await update.mutateAsync({ id: initial.id, patch: payload })
     } else {
-      await create.mutateAsync(values)
+      await create.mutateAsync(payload)
     }
     onOpenChange(false)
   }
 
   const measure = watch("measure_type")
+  const carb = watch("carb_g") || 0
+  const protein = watch("protein_g") || 0
+  const fat = watch("fat_g") || 0
+  const computedKcal = deriveKcal({ carb_g: carb, protein_g: protein, fat_g: fat })
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{initial ? "Editar alimento" : "Novo alimento"}</SheetTitle>
           <SheetDescription>
-            Macros por referência — depois cada item da refeição escala pela quantidade.
+            Coloca os macros — kcal é calculado (4·carb + 4·prot + 9·gord).
           </SheetDescription>
         </SheetHeader>
 
@@ -124,8 +143,15 @@ export function FoodFormSheet({
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" {...register("name")} autoComplete="off" autoCapitalize="sentences" />
-            {errors.name && <p className="text-destructive text-xs">{errors.name.message}</p>}
+            <Input
+              id="name"
+              {...register("name")}
+              autoComplete="off"
+              autoCapitalize="sentences"
+            />
+            {errors.name && (
+              <p className="text-destructive text-xs">{errors.name.message}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -146,12 +172,14 @@ export function FoodFormSheet({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Unidade</Label>
-              <div className="flex h-9 overflow-hidden rounded-md border border-input">
+              <div className="flex h-10 overflow-hidden rounded-md border border-input">
                 {MEASURES.map((m) => (
                   <button
                     key={m.value}
                     type="button"
-                    onClick={() => setValue("measure_type", m.value, { shouldDirty: true })}
+                    onClick={() =>
+                      setValue("measure_type", m.value, { shouldDirty: true })
+                    }
                     className={`flex-1 text-xs transition-colors ${
                       measure === m.value
                         ? "bg-primary text-primary-foreground"
@@ -165,23 +193,52 @@ export function FoodFormSheet({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="kcal">Kcal</Label>
-              <Input id="kcal" type="number" inputMode="decimal" step="any" {...register("kcal", { valueAsNumber: true })} />
-            </div>
+          <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="carb_g">Carb (g)</Label>
-              <Input id="carb_g" type="number" inputMode="decimal" step="any" {...register("carb_g", { valueAsNumber: true })} />
+              <Input
+                id="carb_g"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                {...register("carb_g", { valueAsNumber: true })}
+              />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="protein_g">Proteína (g)</Label>
-              <Input id="protein_g" type="number" inputMode="decimal" step="any" {...register("protein_g", { valueAsNumber: true })} />
+              <Label htmlFor="protein_g">Prot (g)</Label>
+              <Input
+                id="protein_g"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                {...register("protein_g", { valueAsNumber: true })}
+              />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="fat_g">Gordura (g)</Label>
-              <Input id="fat_g" type="number" inputMode="decimal" step="any" {...register("fat_g", { valueAsNumber: true })} />
+              <Label htmlFor="fat_g">Gord (g)</Label>
+              <Input
+                id="fat_g"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                {...register("fat_g", { valueAsNumber: true })}
+              />
             </div>
+          </div>
+
+          {/* Kcal calculado em destaque */}
+          <div className="bg-muted/50 flex items-center justify-between rounded-xl border border-border px-4 py-3">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                Kcal calculado
+              </p>
+              <p className="text-muted-foreground text-[10px]">
+                4·carb + 4·prot + 9·gord
+              </p>
+            </div>
+            <span className="tabular-nums text-2xl font-bold">
+              {r(computedKcal)}
+            </span>
           </div>
 
           <SheetFooter className="flex-row gap-2 px-0">

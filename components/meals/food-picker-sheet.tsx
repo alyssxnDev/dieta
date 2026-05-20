@@ -1,6 +1,6 @@
 "use client"
 
-import { Search } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -14,8 +14,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Switch } from "@/components/ui/switch"
 import { normalizeFoodItem, r } from "@/lib/calculations/macros"
 import { useFoods } from "@/lib/queries/foods"
+import { useAddMealItemToAllByName } from "@/lib/queries/meals"
 import type { Food } from "@/types/database"
 
 const UNIT_LABEL: Record<Food["measure_type"], string> = {
@@ -24,19 +26,28 @@ const UNIT_LABEL: Record<Food["measure_type"], string> = {
   unit: "un",
 }
 
+/**
+ * Context opcional: se passado, oferece o toggle "adicionar em todas as
+ * refeições com este nome" no ato da inclusão. Caso contrário só insere no
+ * meal corrente (callback `onPicked`).
+ */
 export function FoodPickerSheet({
   open,
   onOpenChange,
   onPicked,
+  replicateContext,
 }: {
   open: boolean
   onOpenChange: (b: boolean) => void
   onPicked: (foodId: string, quantity: number) => Promise<void> | void
+  replicateContext?: { profileId: string; mealName: string }
 }) {
   const { data: foods } = useFoods()
+  const addToAll = useAddMealItemToAllByName()
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<Food | null>(null)
   const [qty, setQty] = useState<string>("")
+  const [replicateAll, setReplicateAll] = useState(false)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -50,6 +61,7 @@ export function FoodPickerSheet({
     setQuery("")
     setSelected(null)
     setQty("")
+    setReplicateAll(false)
   }
 
   const preview = useMemo(() => {
@@ -61,7 +73,16 @@ export function FoodPickerSheet({
     if (!selected || !qty) return
     const n = Number(qty)
     if (!Number.isFinite(n) || n <= 0) return
-    await onPicked(selected.id, n)
+    if (replicateAll && replicateContext) {
+      await addToAll.mutateAsync({
+        profileId: replicateContext.profileId,
+        mealName: replicateContext.mealName,
+        foodId: selected.id,
+        quantity: n,
+      })
+    } else {
+      await onPicked(selected.id, n)
+    }
     reset()
     onOpenChange(false)
   }
@@ -74,13 +95,11 @@ export function FoodPickerSheet({
         onOpenChange(o)
       }}
     >
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Adicionar alimento</SheetTitle>
           <SheetDescription>
-            {selected
-              ? `Quanto de ${selected.name}?`
-              : "Busca no seu banco e escolhe."}
+            {selected ? `Quanto de ${selected.name}?` : "Busca no seu banco."}
           </SheetDescription>
         </SheetHeader>
 
@@ -107,7 +126,7 @@ export function FoodPickerSheet({
                     "Cadastra alimentos na aba Alimentos primeiro."}
                 </p>
               ) : (
-                <ul className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto">
+                <ul className="flex max-h-[45dvh] flex-col gap-1 overflow-y-auto">
                   {filtered.map((f) => (
                     <li key={f.id}>
                       <button
@@ -144,13 +163,31 @@ export function FoodPickerSheet({
               </div>
 
               {preview && (
-                <div className="bg-card rounded-xl border border-zinc-800 px-3 py-2">
+                <div className="bg-muted/50 rounded-xl border border-border px-3 py-2">
                   <p className="text-muted-foreground mb-1 text-xs">Adiciona</p>
                   <p className="tabular-nums text-sm">
                     {r(preview.kcal)} kcal · C {r(preview.carb_g)}g · P{" "}
                     {r(preview.protein_g)}g · G {r(preview.fat_g)}g
                   </p>
                 </div>
+              )}
+
+              {replicateContext && (
+                <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-3 py-2">
+                  <span className="flex flex-col">
+                    <span className="text-sm">
+                      Adicionar em todas as “{replicateContext.mealName}”
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      Insere o mesmo alimento em todas as refeições com esse
+                      nome (qualquer dia da semana).
+                    </span>
+                  </span>
+                  <Switch
+                    checked={replicateAll}
+                    onCheckedChange={setReplicateAll}
+                  />
+                </label>
               )}
 
               <button
@@ -178,9 +215,15 @@ export function FoodPickerSheet({
             <Button
               type="button"
               onClick={handleAdd}
-              disabled={!selected || !qty || Number(qty) <= 0}
+              disabled={
+                !selected ||
+                !qty ||
+                Number(qty) <= 0 ||
+                addToAll.isPending
+              }
               className="flex-1"
             >
+              {addToAll.isPending && <Loader2 className="animate-spin" />}
               Adicionar
             </Button>
           </SheetFooter>

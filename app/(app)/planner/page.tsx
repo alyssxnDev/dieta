@@ -58,7 +58,7 @@ export default function PlannerPage() {
           </div>
         ) : (meals ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-            <div className="bg-card flex h-14 w-14 items-center justify-center rounded-full border border-zinc-800">
+            <div className="bg-card flex h-14 w-14 items-center justify-center rounded-full border border-border">
               <CalendarPlus className="text-muted-foreground size-6" />
             </div>
             <p className="text-muted-foreground text-sm">
@@ -84,7 +84,7 @@ export default function PlannerPage() {
       <Button
         size="icon-lg"
         onClick={() => setFormOpen(true)}
-        className="pb-safe fixed right-4 bottom-20 z-30 size-14 rounded-full shadow-lg"
+        className="bottom-fab fixed right-4 z-30 size-14 rounded-full shadow-lg"
         aria-label="Nova refeição"
         disabled={!active}
       >
