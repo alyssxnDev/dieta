@@ -1,16 +1,24 @@
 "use client"
 
-import { CopyPlus, Loader2, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { Loader2, Plus, Trash2 } from "lucide-react"
+import { useMemo, useState } from "react"
 
 import { FoodPickerSheet } from "@/components/meals/food-picker-sheet"
+import { MealItemQtySheet } from "@/components/meals/meal-item-qty-sheet"
+import {
+  formatTime,
+  postgresToRaw,
+  timeToPostgres,
+} from "@/components/meals/meal-form-sheet"
+import { AlphaKeypad } from "@/components/ui/alpha-keypad"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { ConfirmSheet } from "@/components/ui/confirm-sheet"
+import { KeypadField } from "@/components/ui/keypad-field"
+import { NumericKeypad } from "@/components/ui/numeric-keypad"
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
@@ -21,22 +29,21 @@ import {
   useAddMealItem,
   useDeleteMealItem,
   useDeleteMealTemplate,
-  useReplicateMealToDays,
   useUpdateMealItem,
   useUpdateMealTemplate,
 } from "@/lib/queries/meals"
-import { cn } from "@/lib/utils"
-import type { Food, MealTemplateWithItems } from "@/types/database"
+import type { Food, MealTemplateItem, MealTemplateWithItems } from "@/types/database"
 
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
+type FieldName = "name" | "time"
+
 const UNIT_LABEL: Record<Food["measure_type"], string> = {
   g: "g",
   ml: "ml",
   unit: "un",
 }
 
-// Usa key={meal.id} no parent — quando trocar de refeição, este componente
-// remonta e o useState abaixo pega os valores frescos sem useEffect/setState.
+// Usa key={meal.id} no parent — quando trocar de refeição, remonta e o
+// useState pega valores frescos sem useEffect/setState.
 export function MealDetailSheet({
   open,
   onOpenChange,
@@ -48,38 +55,81 @@ export function MealDetailSheet({
 }) {
   const update = useUpdateMealTemplate()
   const del = useDeleteMealTemplate()
-  const replicate = useReplicateMealToDays()
   const addItem = useAddMealItem()
   const updItem = useUpdateMealItem()
   const delItem = useDeleteMealItem()
 
+  const [focused, setFocused] = useState<FieldName>("name")
   const [name, setName] = useState(meal.name)
-  const [time, setTime] = useState(meal.time ? meal.time.slice(0, 5) : "")
+  const [timeRaw, setTimeRaw] = useState(postgresToRaw(meal.time))
   const [notify, setNotify] = useState(meal.notify)
+  const [savingMeta, setSavingMeta] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [replicateOpen, setReplicateOpen] = useState(false)
-  const [replicateDays, setReplicateDays] = useState<number[]>([])
+  // Guarda só os IDs — derivamos os objetos do cache atual via useMemo, assim
+  // qty editor reflete mudanças (e fecha sozinho se item for deletado).
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
+  const [deletingMeal, setDeletingMeal] = useState(false)
+
+  const editingItem = useMemo<
+    (MealTemplateItem & { food: Food }) | null
+  >(
+    () =>
+      editingItemId
+        ? meal.items.find((it) => it.id === editingItemId) ?? null
+        : null,
+    [editingItemId, meal.items],
+  )
+  const deletingItem = useMemo<
+    (MealTemplateItem & { food: Food }) | null
+  >(
+    () =>
+      deletingItemId
+        ? meal.items.find((it) => it.id === deletingItemId) ?? null
+        : null,
+    [deletingItemId, meal.items],
+  )
 
   const totals = mealTotals(meal.items)
+  const pgTime = timeRaw ? timeToPostgres(timeRaw) : null
   const dirty =
-    name !== meal.name ||
-    (time ? `${time}:00` : null) !== meal.time ||
+    name.trim() !== meal.name ||
+    pgTime !== meal.time ||
     notify !== meal.notify
 
   const saveMeta = async () => {
-    if (!dirty) return
-    await update.mutateAsync({
-      id: meal.id,
-      profileId: meal.profile_id,
-      patch: { name, time: time ? `${time}:00` : null, notify },
-    })
+    setError(null)
+    const trimmed = name.trim()
+    if (!trimmed) return setError("Nome é obrigatório")
+    if (timeRaw && pgTime === null)
+      return setError("Horário inválido (00:00–23:59)")
+    setSavingMeta(true)
+    try {
+      await update.mutateAsync({
+        id: meal.id,
+        profileId: meal.profile_id,
+        patch: { name: trimmed, time: pgTime, notify },
+      })
+    } finally {
+      setSavingMeta(false)
+    }
   }
 
   const removeMeal = async () => {
-    if (!window.confirm(`Excluir "${meal.name}" deste dia (${dayName(meal.day_of_week, true)})?`))
-      return
     await del.mutateAsync({ id: meal.id, profileId: meal.profile_id })
+    setDeletingMeal(false)
     onOpenChange(false)
+  }
+
+  const removeItem = async () => {
+    if (!deletingItem) return
+    await delItem.mutateAsync({
+      id: deletingItem.id,
+      profileId: meal.profile_id,
+    })
+    setDeletingItemId(null)
   }
 
   const handlePicked = async (foodId: string, quantity: number) => {
@@ -92,17 +142,6 @@ export function MealDetailSheet({
     })
   }
 
-  const doReplicate = async () => {
-    if (replicateDays.length === 0) return
-    await replicate.mutateAsync({
-      sourceMealId: meal.id,
-      profileId: meal.profile_id,
-      targetDays: replicateDays,
-    })
-    setReplicateOpen(false)
-    setReplicateDays([])
-  }
-
   return (
     <>
       <Sheet
@@ -112,69 +151,69 @@ export function MealDetailSheet({
           onOpenChange(o)
         }}
       >
-        <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar refeição</SheetTitle>
-            <SheetDescription>
-              Edita só a instância de <strong>{dayName(meal.day_of_week, true)}</strong>.
-            </SheetDescription>
+        <SheetContent
+          side="bottom"
+          className="flex max-h-[95dvh] flex-col p-0"
+        >
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>Editar refeição · {dayName(meal.day_of_week, true)}</SheetTitle>
           </SheetHeader>
 
-          <div className="flex flex-col gap-4 px-4 pb-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="meal-name">Nome</Label>
-              <Input
-                id="meal-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoCapitalize="sentences"
-              />
-            </div>
+          <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
+            <KeypadField
+              label="Nome"
+              value={name}
+              placeholder="Café da manhã"
+              active={focused === "name"}
+              onClick={() => setFocused("name")}
+            />
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="meal-time">Horário</Label>
-              <Input
-                id="meal-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
+            <KeypadField
+              label="Horário"
+              value={formatTime(timeRaw)}
+              placeholder="HH:MM"
+              active={focused === "time"}
+              onClick={() => setFocused("time")}
+            />
 
             <label
               htmlFor="meal-notify"
-              className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5"
+              className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-3 py-2.5"
             >
               <span className="text-sm">Notificar</span>
-              <Switch
-                id="meal-notify"
-                checked={notify}
-                onCheckedChange={setNotify}
-              />
+              <Switch id="meal-notify" checked={notify} onCheckedChange={setNotify} />
             </label>
 
             {dirty && (
-              <Button onClick={saveMeta} variant="secondary" size="sm" disabled={update.isPending}>
-                {update.isPending && <Loader2 className="animate-spin" />}
+              <Button
+                onClick={saveMeta}
+                variant="secondary"
+                size="sm"
+                disabled={savingMeta}
+              >
+                {savingMeta && <Loader2 className="animate-spin" />}
                 Salvar alterações
               </Button>
             )}
 
+            {error && (
+              <p className="text-destructive text-center text-xs">{error}</p>
+            )}
+
             {/* Items */}
-            <div className="flex flex-col gap-2">
+            <div className="border-border border-t pt-3 flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold">Alimentos</h3>
                 <span className="text-muted-foreground tabular-nums text-xs">
-                  {r(totals.kcal)} kcal · C {r(totals.carb_g)}g · P {r(totals.protein_g)}g · G{" "}
-                  {r(totals.fat_g)}g
+                  {r(totals.kcal)} kcal
                 </span>
               </div>
               {meal.items.length === 0 ? (
-                <p className="text-muted-foreground bg-card rounded-xl border border-border px-3 py-4 text-center text-xs">
+                <p className="text-muted-foreground rounded-xl border border-dashed border-border px-3 py-4 text-center text-xs">
                   Sem alimentos. Adiciona o primeiro.
                 </p>
               ) : (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-1.5">
                   {meal.items.map((it) => {
                     const macros = normalizeFoodItem(it.food, it.quantity)
                     return (
@@ -182,65 +221,75 @@ export function MealDetailSheet({
                         key={it.id}
                         className="bg-card flex items-center gap-2 rounded-xl border border-border px-3 py-2"
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm">{it.food.name}</p>
-                          <p className="text-muted-foreground tabular-nums text-xs">
-                            {r(macros.kcal)} kcal · C {r(macros.carb_g)}g · P {r(macros.protein_g)}g · G{" "}
-                            {r(macros.fat_g)}g
-                          </p>
-                        </div>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          step="any"
-                          defaultValue={it.quantity}
-                          onBlur={(e) => {
-                            const v = Number(e.target.value)
-                            if (!Number.isFinite(v) || v <= 0 || v === it.quantity) return
-                            updItem.mutate({
-                              id: it.id,
-                              profileId: meal.profile_id,
-                              quantity: v,
-                            })
-                          }}
-                          className="h-8 w-16 text-right text-xs tabular-nums"
-                          aria-label={`Quantidade de ${it.food.name}`}
-                        />
-                        <span className="text-muted-foreground w-4 text-xs">
-                          {UNIT_LABEL[it.food.measure_type]}
-                        </span>
-                        <Button
-                          size="icon-xs"
-                          variant="ghost"
-                          onClick={() =>
-                            delItem.mutate({ id: it.id, profileId: meal.profile_id })
-                          }
-                          aria-label="Remover"
+                        <button
+                          type="button"
+                          onClick={() => setEditingItemId(it.id)}
+                          className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
                         >
-                          <Trash2 />
-                        </Button>
+                          <span className="truncate text-sm">{it.food.name}</span>
+                          <span className="text-muted-foreground tabular-nums text-xs">
+                            {r(it.quantity)}
+                            {UNIT_LABEL[it.food.measure_type]} · {r(macros.kcal)} kcal
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingItemId(it.id)}
+                          aria-label={`Excluir ${it.food.name}`}
+                          className="text-muted-foreground hover:text-destructive flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       </li>
                     )
                   })}
                 </ul>
               )}
-              <Button onClick={() => setPickerOpen(true)} variant="secondary" size="sm">
+              <Button
+                onClick={() => setPickerOpen(true)}
+                variant="secondary"
+                size="sm"
+              >
                 <Plus />
                 Adicionar alimento
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => setReplicateOpen(true)}>
-                <CopyPlus />
-                Replicar
-              </Button>
-              <Button variant="destructive" onClick={removeMeal}>
-                <Trash2 />
-                Excluir
-              </Button>
-            </div>
+            <Button
+              variant="destructive"
+              onClick={() => setDeletingMeal(true)}
+              className="mt-1"
+            >
+              <Trash2 />
+              Excluir refeição
+            </Button>
           </div>
+
+          {/* Keypad sticky */}
+          <div className="border-t border-border bg-background/95 px-3 py-2 backdrop-blur">
+            {focused === "name" ? (
+              <AlphaKeypad value={name} onChange={setName} maxLength={60} />
+            ) : (
+              <NumericKeypad
+                value={timeRaw}
+                onChange={(v) =>
+                  setTimeRaw(v.replace(/\D/g, "").slice(0, 4))
+                }
+                allowDecimal={false}
+                maxLength={4}
+              />
+            )}
+          </div>
+
+          <SheetFooter className="border-t border-border px-4 py-3">
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              className="w-full"
+            >
+              Fechar
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 
@@ -251,63 +300,39 @@ export function MealDetailSheet({
         replicateContext={{ profileId: meal.profile_id, mealName: meal.name }}
       />
 
-      {/* Replicate sheet */}
-      <Sheet open={replicateOpen} onOpenChange={setReplicateOpen}>
-        <SheetContent side="bottom" className="max-h-[60dvh]">
-          <SheetHeader>
-            <SheetTitle>Replicar pra outros dias</SheetTitle>
-            <SheetDescription>
-              Cria uma cópia (com os mesmos alimentos) nos dias escolhidos.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex flex-col gap-4 px-4 pb-4">
-            <div className="grid grid-cols-7 gap-1">
-              {ALL_DAYS.filter((d) => d !== meal.day_of_week).map((d) => {
-                const sel = replicateDays.includes(d)
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() =>
-                      setReplicateDays((prev) =>
-                        prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d],
-                      )
-                    }
-                    className={cn(
-                      "rounded-lg border py-2 text-xs font-medium transition-colors",
-                      sel
-                        ? "bg-primary text-primary-foreground border-transparent"
-                        : "border-border text-muted-foreground",
-                    )}
-                  >
-                    {dayName(d).slice(0, 1)}
-                  </button>
-                )
-              })}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => {
-                  setReplicateDays([])
-                  setReplicateOpen(false)
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={doReplicate}
-                disabled={replicateDays.length === 0 || replicate.isPending}
-              >
-                {replicate.isPending && <Loader2 className="animate-spin" />}
-                Replicar ({replicateDays.length})
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <MealItemQtySheet
+        open={!!editingItem}
+        onOpenChange={(o) => !o && setEditingItemId(null)}
+        item={editingItem}
+        onSave={async (q) => {
+          if (!editingItem) return
+          await updItem.mutateAsync({
+            id: editingItem.id,
+            profileId: meal.profile_id,
+            quantity: q,
+          })
+        }}
+      />
+
+      <ConfirmSheet
+        open={!!deletingItem}
+        onOpenChange={(o) => !o && setDeletingItemId(null)}
+        title={`Excluir ${deletingItem?.food.name ?? "alimento"}?`}
+        description={`Remove só desta refeição. Você pode adicionar de novo quando quiser.`}
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={removeItem}
+      />
+
+      <ConfirmSheet
+        open={deletingMeal}
+        onOpenChange={setDeletingMeal}
+        title={`Excluir "${meal.name}"?`}
+        description={`Remove esta refeição apenas de ${dayName(meal.day_of_week, true)}. Os alimentos cadastrados não são afetados.`}
+        confirmLabel="Excluir refeição"
+        destructive
+        onConfirm={removeMeal}
+      />
     </>
   )
 }

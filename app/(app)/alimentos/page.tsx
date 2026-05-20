@@ -6,23 +6,19 @@ import { useMemo, useState } from "react"
 import { FoodFormSheet } from "@/components/foods/food-form-sheet"
 import { FoodRow } from "@/components/foods/food-row"
 import { Button } from "@/components/ui/button"
+import { ConfirmSheet } from "@/components/ui/confirm-sheet"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  useCreateFood,
-  useDeleteFood,
-  useFoods,
-} from "@/lib/queries/foods"
-import { haptic } from "@/lib/haptic"
+import { useDeleteFood, useFoods } from "@/lib/queries/foods"
 import type { Food } from "@/types/database"
 
 export default function AlimentosPage() {
   const { data: foods, isLoading } = useFoods()
-  const create = useCreateFood()
   const del = useDeleteFood()
   const [query, setQuery] = useState("")
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<Food | null>(null)
+  const [deleting, setDeleting] = useState<Food | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -42,24 +38,9 @@ export default function AlimentosPage() {
     setSheetOpen(true)
   }
 
-  const duplicate = async (f: Food) => {
-    haptic(8)
-    await create.mutateAsync({
-      name: `${f.name} (cópia)`,
-      measure_type: f.measure_type,
-      reference_quantity: f.reference_quantity,
-      kcal: f.kcal,
-      carb_g: f.carb_g,
-      protein_g: f.protein_g,
-      fat_g: f.fat_g,
-    })
-  }
-
-  const remove = async (f: Food) => {
-    if (!window.confirm(`Excluir "${f.name}"? Todas as refeições que usam serão atualizadas.`))
-      return
-    haptic(10)
-    await del.mutateAsync(f.id)
+  const confirmRemove = async () => {
+    if (!deleting) return
+    await del.mutateAsync(deleting.id)
   }
 
   return (
@@ -99,8 +80,7 @@ export default function AlimentosPage() {
               <FoodRow
                 food={f}
                 onEdit={() => openEdit(f)}
-                onDuplicate={() => duplicate(f)}
-                onDelete={() => remove(f)}
+                onDelete={() => setDeleting(f)}
               />
             </li>
           ))}
@@ -122,18 +102,36 @@ export default function AlimentosPage() {
         onOpenChange={setSheetOpen}
         initial={editing}
       />
+
+      <ConfirmSheet
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Excluir "${deleting?.name ?? ""}"?`}
+        description="O alimento sai do banco. Refeições que usam ele também perdem esse item — você pode adicionar de novo a qualquer momento."
+        confirmLabel="Excluir alimento"
+        destructive
+        onConfirm={confirmRemove}
+      />
     </main>
   )
 }
 
-function EmptyState({ hasFoods, onAdd }: { hasFoods: boolean; onAdd: () => void }) {
+function EmptyState({
+  hasFoods,
+  onAdd,
+}: {
+  hasFoods: boolean
+  onAdd: () => void
+}) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center">
       <div className="bg-card flex h-14 w-14 items-center justify-center rounded-full border border-border">
         <Apple className="text-muted-foreground size-6" />
       </div>
       <p className="text-muted-foreground text-sm">
-        {hasFoods ? "Nada encontrado." : "Banco vazio. Cadastra os primeiros alimentos."}
+        {hasFoods
+          ? "Nada encontrado."
+          : "Banco vazio. Cadastra os primeiros alimentos."}
       </p>
       {!hasFoods && (
         <Button onClick={onAdd}>

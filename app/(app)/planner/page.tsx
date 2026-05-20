@@ -99,7 +99,6 @@ export default function PlannerPage() {
           open={formOpen}
           onOpenChange={setFormOpen}
           profileId={active.id}
-          defaultDay={selectedDay}
         />
       )}
       {editingMeal && (

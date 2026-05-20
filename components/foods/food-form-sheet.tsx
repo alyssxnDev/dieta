@@ -1,14 +1,12 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+import { useEffect, useState } from "react"
 
+import { AlphaKeypad } from "@/components/ui/alpha-keypad"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { KeypadField } from "@/components/ui/keypad-field"
+import { NumericKeypad } from "@/components/ui/numeric-keypad"
 import {
   Sheet,
   SheetContent,
@@ -18,18 +16,10 @@ import {
 } from "@/components/ui/sheet"
 import { r } from "@/lib/calculations/macros"
 import { useCreateFood, useUpdateFood } from "@/lib/queries/foods"
+import { cn } from "@/lib/utils"
 import type { Food, MeasureType } from "@/types/database"
 
-const schema = z.object({
-  name: z.string().min(1, "Obrigatório").max(120),
-  measure_type: z.enum(["g", "ml", "unit"]),
-  reference_quantity: z.number().positive("Maior que 0"),
-  carb_g: z.number().nonnegative(),
-  protein_g: z.number().nonnegative(),
-  fat_g: z.number().nonnegative(),
-})
-
-type FormData = z.infer<typeof schema>
+type FieldName = "name" | "ref_qty" | "carb" | "prot" | "fat"
 
 const MEASURES: { value: MeasureType; label: string }[] = [
   { value: "g", label: "g" },
@@ -37,22 +27,16 @@ const MEASURES: { value: MeasureType; label: string }[] = [
   { value: "unit", label: "un" },
 ]
 
-/** Atwater factors. Carb e proteína: 4 kcal/g. Gordura: 9 kcal/g. */
-function deriveKcal({
-  carb_g,
-  protein_g,
-  fat_g,
-}: {
-  carb_g: number
-  protein_g: number
-  fat_g: number
-}) {
-  return (
-    (Number.isFinite(carb_g) ? carb_g : 0) * 4 +
-    (Number.isFinite(protein_g) ? protein_g : 0) * 4 +
-    (Number.isFinite(fat_g) ? fat_g : 0) * 9
-  )
+const num = (s: string) => {
+  const n = Number(s.replace(",", "."))
+  return Number.isFinite(n) ? n : 0
 }
+
+const numStr = (n: number | null | undefined): string =>
+  n === null || n === undefined || n === 0 ? "" : String(n)
+
+/** Atwater: kcal = 4·carb + 4·prot + 9·gord */
+const deriveKcal = (c: number, p: number, f: number) => 4 * c + 4 * p + 9 * f
 
 export function FoodFormSheet({
   open,
@@ -66,121 +50,114 @@ export function FoodFormSheet({
   const create = useCreateFood()
   const update = useUpdateFood()
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: "",
-      measure_type: "g",
-      reference_quantity: 100,
-      carb_g: 0,
-      protein_g: 0,
-      fat_g: 0,
-    },
-  })
+  const [focused, setFocused] = useState<FieldName>("name")
+  const [name, setName] = useState("")
+  const [measure, setMeasure] = useState<MeasureType>("g")
+  const [refQty, setRefQty] = useState("")
+  const [carb, setCarb] = useState("")
+  const [prot, setProt] = useState("")
+  const [fat, setFat] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
-    reset(
-      initial
-        ? {
-            name: initial.name,
-            measure_type: initial.measure_type,
-            reference_quantity: initial.reference_quantity,
-            carb_g: initial.carb_g,
-            protein_g: initial.protein_g,
-            fat_g: initial.fat_g,
-          }
-        : {
-            name: "",
-            measure_type: "g",
-            reference_quantity: 100,
-            carb_g: 0,
-            protein_g: 0,
-            fat_g: 0,
-          },
-    )
-  }, [open, initial, reset])
-
-  const onSubmit = async (values: FormData) => {
-    const kcal = deriveKcal(values)
-    const payload = { ...values, kcal }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form on open; key prop pattern não cabe aqui pq Sheet faz close animation
+    setFocused("name")
+    setError(null)
     if (initial) {
-      await update.mutateAsync({ id: initial.id, patch: payload })
+      setName(initial.name)
+      setMeasure(initial.measure_type)
+      setRefQty(numStr(initial.reference_quantity))
+      setCarb(numStr(initial.carb_g))
+      setProt(numStr(initial.protein_g))
+      setFat(numStr(initial.fat_g))
     } else {
-      await create.mutateAsync(payload)
+      setName("")
+      setMeasure("g")
+      setRefQty("100")
+      setCarb("")
+      setProt("")
+      setFat("")
     }
-    onOpenChange(false)
-  }
+  }, [open, initial])
 
-  const measure = watch("measure_type")
-  const carb = watch("carb_g") || 0
-  const protein = watch("protein_g") || 0
-  const fat = watch("fat_g") || 0
-  const computedKcal = deriveKcal({ carb_g: carb, protein_g: protein, fat_g: fat })
+  const computedKcal = deriveKcal(num(carb), num(prot), num(fat))
+
+  const onSave = async () => {
+    setError(null)
+    const trimmedName = name.trim()
+    const refQtyN = num(refQty)
+    if (!trimmedName) return setError("Nome é obrigatório")
+    if (refQtyN <= 0) return setError("Quantidade base precisa ser maior que 0")
+
+    const payload = {
+      name: trimmedName,
+      measure_type: measure,
+      reference_quantity: refQtyN,
+      kcal: computedKcal,
+      carb_g: num(carb),
+      protein_g: num(prot),
+      fat_g: num(fat),
+    }
+    setSubmitting(true)
+    try {
+      if (initial) {
+        await update.mutateAsync({ id: initial.id, patch: payload })
+      } else {
+        await create.mutateAsync(payload)
+      }
+      onOpenChange(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao salvar")
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
-        <SheetHeader>
+      <SheetContent
+        side="bottom"
+        className="flex max-h-[95dvh] flex-col p-0"
+      >
+        <SheetHeader className="border-b border-border">
           <SheetTitle>{initial ? "Editar alimento" : "Novo alimento"}</SheetTitle>
         </SheetHeader>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4 px-4 pb-4"
-          noValidate
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input
-              id="name"
-              {...register("name")}
-              autoComplete="off"
-              autoCapitalize="sentences"
-            />
-            {errors.name && (
-              <p className="text-destructive text-xs">{errors.name.message}</p>
-            )}
-          </div>
+        {/* Form (scrollable) */}
+        <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
+          <KeypadField
+            label="Nome"
+            value={name}
+            placeholder="Aveia, banana, frango..."
+            active={focused === "name"}
+            onClick={() => setFocused("name")}
+          />
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 flex flex-col gap-2">
-              <Label htmlFor="reference_quantity">Quantidade base</Label>
-              <Input
-                id="reference_quantity"
-                type="number"
-                inputMode="decimal"
-                step="any"
-                {...register("reference_quantity", { valueAsNumber: true })}
-              />
-              {errors.reference_quantity && (
-                <p className="text-destructive text-xs">
-                  {errors.reference_quantity.message}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Unidade</Label>
-              <div className="flex h-10 overflow-hidden rounded-md border border-input">
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <KeypadField
+              label="Quantidade base"
+              value={refQty}
+              placeholder="100"
+              active={focused === "ref_qty"}
+              onClick={() => setFocused("ref_qty")}
+              unit={MEASURES.find((m) => m.value === measure)?.label}
+            />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-muted-foreground text-xs px-1">Unidade</span>
+              <div className="flex h-[58px] gap-1 rounded-xl border border-border p-1">
                 {MEASURES.map((m) => (
                   <button
                     key={m.value}
                     type="button"
-                    onClick={() =>
-                      setValue("measure_type", m.value, { shouldDirty: true })
-                    }
-                    className={`flex-1 text-xs transition-colors ${
+                    onClick={() => setMeasure(m.value)}
+                    className={cn(
+                      "rounded-lg px-3 text-xs font-medium transition-colors",
                       measure === m.value
                         ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground"
-                    }`}
+                        : "text-muted-foreground",
+                    )}
                   >
                     {m.label}
                   </button>
@@ -189,37 +166,31 @@ export function FoodFormSheet({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="carb_g">Carb (g)</Label>
-              <Input
-                id="carb_g"
-                type="number"
-                inputMode="decimal"
-                step="any"
-                {...register("carb_g", { valueAsNumber: true })}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="protein_g">Prot (g)</Label>
-              <Input
-                id="protein_g"
-                type="number"
-                inputMode="decimal"
-                step="any"
-                {...register("protein_g", { valueAsNumber: true })}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fat_g">Gord (g)</Label>
-              <Input
-                id="fat_g"
-                type="number"
-                inputMode="decimal"
-                step="any"
-                {...register("fat_g", { valueAsNumber: true })}
-              />
-            </div>
+          <div className="grid grid-cols-3 gap-2">
+            <KeypadField
+              label="Carb"
+              value={carb}
+              placeholder="0"
+              active={focused === "carb"}
+              onClick={() => setFocused("carb")}
+              unit="g"
+            />
+            <KeypadField
+              label="Prot"
+              value={prot}
+              placeholder="0"
+              active={focused === "prot"}
+              onClick={() => setFocused("prot")}
+              unit="g"
+            />
+            <KeypadField
+              label="Gord"
+              value={fat}
+              placeholder="0"
+              active={focused === "fat"}
+              onClick={() => setFocused("fat")}
+              unit="g"
+            />
           </div>
 
           <div className="bg-muted/50 flex items-center justify-between rounded-xl border border-border px-4 py-3">
@@ -229,21 +200,52 @@ export function FoodFormSheet({
             </span>
           </div>
 
-          <SheetFooter className="flex-row gap-2 px-0">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting && <Loader2 className="animate-spin" />}
-              Salvar
-            </Button>
-          </SheetFooter>
-        </form>
+          {error && (
+            <p className="text-destructive text-center text-xs">{error}</p>
+          )}
+        </div>
+
+        {/* Keypad (sticky bottom) */}
+        <div className="border-t border-border bg-background/95 px-3 py-2 backdrop-blur">
+          {focused === "name" ? (
+            <AlphaKeypad value={name} onChange={setName} />
+          ) : (
+            <NumericKeypad
+              value={
+                focused === "ref_qty"
+                  ? refQty
+                  : focused === "carb"
+                    ? carb
+                    : focused === "prot"
+                      ? prot
+                      : fat
+              }
+              onChange={(v) => {
+                if (focused === "ref_qty") setRefQty(v)
+                else if (focused === "carb") setCarb(v)
+                else if (focused === "prot") setProt(v)
+                else if (focused === "fat") setFat(v)
+              }}
+              allowDecimal
+            />
+          )}
+        </div>
+
+        <SheetFooter className="flex-row gap-2 border-t border-border px-4 py-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+            disabled={submitting}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={onSave} className="flex-1" disabled={submitting}>
+            {submitting && <Loader2 className="animate-spin" />}
+            Salvar
+          </Button>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   )
