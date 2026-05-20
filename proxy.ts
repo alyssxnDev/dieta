@@ -2,14 +2,11 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { updateSession } from "@/lib/supabase/middleware"
 
-// Next 16 renamed `middleware.ts` → `proxy.ts`. Same semantics.
-// For now this only refreshes the Supabase session cookie. Step 3 will add
-// route protection: redirect unauthenticated users to /login and bounce
-// authenticated users away from /login.
+// Next 16 renomeou `middleware.ts` → `proxy.ts`. Mesma semântica.
+// updateSession faz refresh de sessão + redirect de rotas autenticadas/login.
+// Wrap em try/catch: se Supabase env tá ausente/quebrado, app continua subindo
+// (renderiza /login que tem error state próprio).
 export async function proxy(request: NextRequest) {
-  // Wrap so missing/invalid Supabase env vars don't 500 every request
-  // (relevant while .env still has placeholders before the user has set up
-  // the real Supabase project). Step 3 will tighten this.
   try {
     return await updateSession(request)
   } catch {
@@ -19,11 +16,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except:
-    //   - _next/static (build assets)
-    //   - _next/image  (image optimization)
-    //   - favicon.ico, sw.js, manifest.webmanifest
-    //   - any file with an extension (e.g. /icons/icon-192.svg)
+    // Exclui: assets estáticos, image opt, favicon, sw.js, manifest, qualquer arquivo com extensão
     "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.).*)",
   ],
 }

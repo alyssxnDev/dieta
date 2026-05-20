@@ -1,9 +1,13 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-// Called from the root proxy.ts (Next 16 renamed `middleware` → `proxy`).
-// Refreshes the Supabase auth session cookie on every matched request.
-// In step 3 this will be extended with route protection / redirect logic.
+const PUBLIC_PATHS = ["/login"]
+
+// Chamada do proxy.ts raiz (Next 16 renomeou middleware → proxy).
+// Faz 3 coisas:
+//  1) refresh do cookie de sessão Supabase
+//  2) se não autenticado e fora de PUBLIC_PATHS → redireciona pra /login
+//  3) se autenticado e em /login → redireciona pra /hoje
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -28,9 +32,25 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  // IMPORTANT: keep this call between `createServerClient` and `return supabaseResponse`.
-  // It triggers token refresh and writes the new cookies onto supabaseResponse.
-  await supabase.auth.getUser()
+  // IMPORTANT: getUser() faz refresh + valida server-side. Não use getSession()
+  // direto aqui — pode confiar em cookie stale.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { pathname } = request.nextUrl
+  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+
+  if (!user && !isPublic) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/login"
+    return NextResponse.redirect(url)
+  }
+  if (user && pathname === "/login") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/hoje"
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }
