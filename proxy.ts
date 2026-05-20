@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 
 import { updateSession } from "@/lib/supabase/middleware"
 
@@ -7,7 +7,14 @@ import { updateSession } from "@/lib/supabase/middleware"
 // route protection: redirect unauthenticated users to /login and bounce
 // authenticated users away from /login.
 export async function proxy(request: NextRequest) {
-  return updateSession(request)
+  // Wrap so missing/invalid Supabase env vars don't 500 every request
+  // (relevant while .env still has placeholders before the user has set up
+  // the real Supabase project). Step 3 will tighten this.
+  try {
+    return await updateSession(request)
+  } catch {
+    return NextResponse.next({ request })
+  }
 }
 
 export const config = {
