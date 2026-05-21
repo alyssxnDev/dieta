@@ -3,14 +3,12 @@
 import { Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
-import { AlphaKeypad } from "@/components/ui/alpha-keypad"
 import { Button } from "@/components/ui/button"
-import { KeypadField } from "@/components/ui/keypad-field"
-import { NumericKeypad } from "@/components/ui/numeric-keypad"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
@@ -19,21 +17,18 @@ import { useCreateFood, useUpdateFood } from "@/lib/queries/foods"
 import { cn } from "@/lib/utils"
 import type { Food, MeasureType } from "@/types/database"
 
-type FieldName = "name" | "ref_qty" | "carb" | "prot" | "fat"
-
 const MEASURES: { value: MeasureType; label: string }[] = [
   { value: "g", label: "g" },
   { value: "ml", label: "ml" },
   { value: "unit", label: "un" },
 ]
 
-const num = (s: string) => {
+const toNum = (s: string): number => {
   const n = Number(s.replace(",", "."))
   return Number.isFinite(n) ? n : 0
 }
-
-const numStr = (n: number | null | undefined): string =>
-  n === null || n === undefined || n === 0 ? "" : String(n)
+const fromNum = (n: number | null | undefined): string =>
+  n === null || n === undefined ? "" : String(n)
 
 /** Atwater: kcal = 4·carb + 4·prot + 9·gord */
 const deriveKcal = (c: number, p: number, f: number) => 4 * c + 4 * p + 9 * f
@@ -50,7 +45,6 @@ export function FoodFormSheet({
   const create = useCreateFood()
   const update = useUpdateFood()
 
-  const [focused, setFocused] = useState<FieldName>("name")
   const [name, setName] = useState("")
   const [measure, setMeasure] = useState<MeasureType>("g")
   const [refQty, setRefQty] = useState("")
@@ -62,16 +56,15 @@ export function FoodFormSheet({
 
   useEffect(() => {
     if (!open) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset form on open; key prop pattern não cabe aqui pq Sheet faz close animation
-    setFocused("name")
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open
     setError(null)
     if (initial) {
       setName(initial.name)
       setMeasure(initial.measure_type)
-      setRefQty(numStr(initial.reference_quantity))
-      setCarb(numStr(initial.carb_g))
-      setProt(numStr(initial.protein_g))
-      setFat(numStr(initial.fat_g))
+      setRefQty(fromNum(initial.reference_quantity))
+      setCarb(fromNum(initial.carb_g))
+      setProt(fromNum(initial.protein_g))
+      setFat(fromNum(initial.fat_g))
     } else {
       setName("")
       setMeasure("g")
@@ -82,12 +75,12 @@ export function FoodFormSheet({
     }
   }, [open, initial])
 
-  const computedKcal = deriveKcal(num(carb), num(prot), num(fat))
+  const computedKcal = deriveKcal(toNum(carb), toNum(prot), toNum(fat))
 
   const onSave = async () => {
     setError(null)
     const trimmedName = name.trim()
-    const refQtyN = num(refQty)
+    const refQtyN = toNum(refQty)
     if (!trimmedName) return setError("Nome é obrigatório")
     if (refQtyN <= 0) return setError("Quantidade base precisa ser maior que 0")
 
@@ -96,9 +89,9 @@ export function FoodFormSheet({
       measure_type: measure,
       reference_quantity: refQtyN,
       kcal: computedKcal,
-      carb_g: num(carb),
-      protein_g: num(prot),
-      fat_g: num(fat),
+      carb_g: toNum(carb),
+      protein_g: toNum(prot),
+      fat_g: toNum(fat),
     }
     setSubmitting(true)
     try {
@@ -119,41 +112,51 @@ export function FoodFormSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[95dvh] flex-col p-0"
+        className="flex max-h-[95dvh] flex-col gap-0 p-0"
       >
-        <SheetHeader className="border-b border-border">
+        <SheetHeader className="border-b border-border px-4 py-3">
           <SheetTitle>{initial ? "Editar alimento" : "Novo alimento"}</SheetTitle>
         </SheetHeader>
 
-        {/* Form (scrollable) */}
-        <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
-          <KeypadField
-            label="Nome"
-            value={name}
-            placeholder="Aveia, banana, frango..."
-            active={focused === "name"}
-            onClick={() => setFocused("name")}
-          />
+        {/* Scrollable form */}
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ff-name">Nome</Label>
+            <Input
+              id="ff-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Aveia, banana, frango..."
+              autoCapitalize="sentences"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="next"
+            />
+          </div>
 
           <div className="grid grid-cols-[1fr_auto] gap-3">
-            <KeypadField
-              label="Quantidade base"
-              value={refQty}
-              placeholder="100"
-              active={focused === "ref_qty"}
-              onClick={() => setFocused("ref_qty")}
-              unit={MEASURES.find((m) => m.value === measure)?.label}
-            />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-muted-foreground text-xs px-1">Unidade</span>
-              <div className="flex h-[58px] gap-1 rounded-xl border border-border p-1">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ff-refqty">Quantidade base</Label>
+              <Input
+                id="ff-refqty"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                value={refQty}
+                onChange={(e) => setRefQty(e.target.value)}
+                enterKeyHint="next"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Unidade</Label>
+              <div className="flex h-10 gap-1 rounded-md border border-border p-1">
                 {MEASURES.map((m) => (
                   <button
                     key={m.value}
                     type="button"
                     onClick={() => setMeasure(m.value)}
                     className={cn(
-                      "rounded-lg px-3 text-xs font-medium transition-colors",
+                      "rounded px-2.5 text-xs font-medium transition-colors",
                       measure === m.value
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground",
@@ -167,30 +170,42 @@ export function FoodFormSheet({
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <KeypadField
-              label="Carb"
-              value={carb}
-              placeholder="0"
-              active={focused === "carb"}
-              onClick={() => setFocused("carb")}
-              unit="g"
-            />
-            <KeypadField
-              label="Prot"
-              value={prot}
-              placeholder="0"
-              active={focused === "prot"}
-              onClick={() => setFocused("prot")}
-              unit="g"
-            />
-            <KeypadField
-              label="Gord"
-              value={fat}
-              placeholder="0"
-              active={focused === "fat"}
-              onClick={() => setFocused("fat")}
-              unit="g"
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ff-carb">Carb (g)</Label>
+              <Input
+                id="ff-carb"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                value={carb}
+                onChange={(e) => setCarb(e.target.value)}
+                enterKeyHint="next"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ff-prot">Prot (g)</Label>
+              <Input
+                id="ff-prot"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                value={prot}
+                onChange={(e) => setProt(e.target.value)}
+                enterKeyHint="next"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ff-fat">Gord (g)</Label>
+              <Input
+                id="ff-fat"
+                type="number"
+                inputMode="decimal"
+                step="any"
+                value={fat}
+                onChange={(e) => setFat(e.target.value)}
+                enterKeyHint="done"
+              />
+            </div>
           </div>
 
           <div className="bg-muted/50 flex items-center justify-between rounded-xl border border-border px-4 py-3">
@@ -205,33 +220,8 @@ export function FoodFormSheet({
           )}
         </div>
 
-        {/* Keypad (sticky bottom) */}
-        <div className="border-t border-border bg-background/95 px-3 py-2 backdrop-blur">
-          {focused === "name" ? (
-            <AlphaKeypad value={name} onChange={setName} />
-          ) : (
-            <NumericKeypad
-              value={
-                focused === "ref_qty"
-                  ? refQty
-                  : focused === "carb"
-                    ? carb
-                    : focused === "prot"
-                      ? prot
-                      : fat
-              }
-              onChange={(v) => {
-                if (focused === "ref_qty") setRefQty(v)
-                else if (focused === "carb") setCarb(v)
-                else if (focused === "prot") setProt(v)
-                else if (focused === "fat") setFat(v)
-              }}
-              allowDecimal
-            />
-          )}
-        </div>
-
-        <SheetFooter className="flex-row gap-2 border-t border-border px-4 py-3">
+        {/* Sticky footer (acima do home indicator) */}
+        <div className="pb-sheet-footer flex gap-2 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
           <Button
             type="button"
             variant="secondary"
@@ -245,7 +235,7 @@ export function FoodFormSheet({
             {submitting && <Loader2 className="animate-spin" />}
             Salvar
           </Button>
-        </SheetFooter>
+        </div>
       </SheetContent>
     </Sheet>
   )

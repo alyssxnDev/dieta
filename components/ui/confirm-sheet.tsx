@@ -8,14 +8,13 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
 
 /**
  * Action sheet de confirmação. Substitui window.confirm (que renderiza
- * dialog nativo feio em iOS PWA, e quebra o tema).
+ * dialog nativo feio em iOS PWA).
  */
 export function ConfirmSheet({
   open,
@@ -50,12 +49,15 @@ export function ConfirmSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !pending && onOpenChange(o)}>
-      <SheetContent side="bottom" className="max-h-[50dvh]">
-        <SheetHeader>
+      <SheetContent
+        side="bottom"
+        className="flex max-h-[50dvh] flex-col gap-0 p-0"
+      >
+        <SheetHeader className="px-4 py-3">
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}
         </SheetHeader>
-        <SheetFooter className="flex-row gap-2 px-4 pb-4">
+        <div className="pb-sheet-footer flex gap-2 px-4 pt-3">
           <Button
             variant="secondary"
             onClick={() => onOpenChange(false)}
@@ -73,7 +75,7 @@ export function ConfirmSheet({
             {pending && <Loader2 className="animate-spin" />}
             {confirmLabel}
           </Button>
-        </SheetFooter>
+        </div>
       </SheetContent>
     </Sheet>
   )

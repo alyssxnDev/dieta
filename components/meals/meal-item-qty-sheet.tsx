@@ -4,10 +4,8 @@ import { Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  KeypadDisplay,
-  NumericKeypad,
-} from "@/components/ui/numeric-keypad"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
@@ -39,14 +37,14 @@ export function MealItemQtySheet({
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset numpad value quando o sheet abre/troca item
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on open/item change
     if (open && item) setQty(String(item.quantity))
   }, [open, item])
 
   if (!item) return null
 
   const numQty = Number(qty.replace(",", "."))
-  const valid = qty && Number.isFinite(numQty) && numQty > 0
+  const valid = qty !== "" && Number.isFinite(numQty) && numQty > 0
   const preview = valid ? normalizeFoodItem(item.food, numQty) : null
 
   const handle = async () => {
@@ -62,37 +60,62 @@ export function MealItemQtySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[90dvh]">
-        <SheetHeader>
+      <SheetContent
+        side="bottom"
+        className="flex max-h-[80dvh] flex-col gap-0 p-0"
+      >
+        <SheetHeader className="border-b border-border px-4 py-3">
           <SheetTitle>{item.food.name}</SheetTitle>
         </SheetHeader>
-        <div className="flex flex-col gap-3 px-4 pb-4">
-          <KeypadDisplay value={qty} unit={UNIT_LABEL[item.food.measure_type]} />
+
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="mi-qty">
+              Quantidade ({UNIT_LABEL[item.food.measure_type]})
+            </Label>
+            <Input
+              id="mi-qty"
+              autoFocus
+              type="number"
+              inputMode="decimal"
+              step="any"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              enterKeyHint="done"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && valid) {
+                  e.preventDefault()
+                  handle()
+                }
+              }}
+            />
+          </div>
+
           {preview && (
-            <p className="text-muted-foreground tabular-nums text-center text-xs">
+            <p className="text-muted-foreground tabular-nums rounded-xl bg-muted/40 px-3 py-2 text-center text-xs">
               {r(preview.kcal)} kcal · C {r(preview.carb_g)}g · P{" "}
               {r(preview.protein_g)}g · G {r(preview.fat_g)}g
             </p>
           )}
-          <NumericKeypad value={qty} onChange={setQty} allowDecimal />
-          <div className="flex gap-2 pt-1">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-              disabled={saving}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handle}
-              disabled={!valid || saving}
-            >
-              {saving && <Loader2 className="animate-spin" />}
-              Salvar
-            </Button>
-          </div>
+        </div>
+
+        <div className="pb-sheet-footer flex gap-2 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={handle}
+            disabled={!valid || saving}
+          >
+            {saving && <Loader2 className="animate-spin" />}
+            Salvar
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

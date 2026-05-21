@@ -4,10 +4,8 @@ import { Apple, ChevronLeft, Loader2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  KeypadDisplay,
-  NumericKeypad,
-} from "@/components/ui/numeric-keypad"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
@@ -27,9 +25,8 @@ const UNIT_LABEL: Record<Food["measure_type"], string> = {
 }
 
 /**
- * 2 etapas (lista → quantidade). Sem search (lista é compacta).
- * Sem botão "trocar alimento" — usa chevron no header pra voltar.
- * Se `replicateContext` passado, oferece toggle "em todas as refeições <nome>".
+ * 2 etapas (lista → quantidade). Sem search (lista compacta).
+ * Chevron-left no header pra voltar do step de qty pra lista.
  */
 export function FoodPickerSheet({
   open,
@@ -49,7 +46,10 @@ export function FoodPickerSheet({
   const [replicateAll, setReplicateAll] = useState(false)
 
   const sorted = useMemo(
-    () => [...(foods ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    () =>
+      [...(foods ?? [])].sort((a, b) =>
+        a.name.localeCompare(b.name, "pt-BR"),
+      ),
     [foods],
   )
 
@@ -60,8 +60,9 @@ export function FoodPickerSheet({
   }
 
   const numericQty = Number(qty.replace(",", "."))
-  const validQty = qty && Number.isFinite(numericQty) && numericQty > 0
-  const preview = selected && validQty ? normalizeFoodItem(selected, numericQty) : null
+  const validQty = qty !== "" && Number.isFinite(numericQty) && numericQty > 0
+  const preview =
+    selected && validQty ? normalizeFoodItem(selected, numericQty) : null
 
   const handleAdd = async () => {
     if (!selected || !validQty) return
@@ -87,8 +88,11 @@ export function FoodPickerSheet({
         onOpenChange(o)
       }}
     >
-      <SheetContent side="bottom" className="flex max-h-[95dvh] flex-col p-0">
-        <SheetHeader className="relative border-b border-border">
+      <SheetContent
+        side="bottom"
+        className="flex max-h-[95dvh] flex-col gap-0 p-0"
+      >
+        <SheetHeader className="relative border-b border-border px-4 py-3">
           {selected && (
             <button
               type="button"
@@ -108,7 +112,7 @@ export function FoodPickerSheet({
         </SheetHeader>
 
         {!selected ? (
-          // ---- Lista de alimentos ----
+          // ---- Lista ----
           <div className="flex-1 overflow-y-auto px-2 py-2">
             {sorted.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
@@ -144,22 +148,36 @@ export function FoodPickerSheet({
         ) : (
           // ---- Quantidade ----
           <>
-            <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
-              <KeypadDisplay
-                value={qty}
-                unit={UNIT_LABEL[selected.measure_type]}
-              />
-              {preview ? (
+            <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="fp-qty">
+                  Quantidade ({UNIT_LABEL[selected.measure_type]})
+                </Label>
+                <Input
+                  id="fp-qty"
+                  autoFocus
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  enterKeyHint="done"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && validQty) {
+                      e.preventDefault()
+                      handleAdd()
+                    }
+                  }}
+                />
+              </div>
+
+              {preview && (
                 <div className="bg-muted/40 rounded-xl border border-border px-3 py-2 text-center">
                   <p className="tabular-nums text-sm">
                     {r(preview.kcal)} kcal · C {r(preview.carb_g)}g · P{" "}
                     {r(preview.protein_g)}g · G {r(preview.fat_g)}g
                   </p>
                 </div>
-              ) : (
-                <p className="text-muted-foreground text-center text-xs">
-                  Digita a quantidade
-                </p>
               )}
 
               {replicateContext && (
@@ -180,11 +198,7 @@ export function FoodPickerSheet({
               )}
             </div>
 
-            <div className="border-t border-border bg-background/95 px-3 py-2 backdrop-blur">
-              <NumericKeypad value={qty} onChange={setQty} allowDecimal />
-            </div>
-
-            <div className="flex gap-2 border-t border-border px-4 py-3">
+            <div className="pb-sheet-footer flex gap-2 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
               <Button
                 type="button"
                 variant="secondary"

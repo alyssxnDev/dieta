@@ -4,10 +4,8 @@ import { Droplet, Plus, Undo2 } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  KeypadDisplay,
-  NumericKeypad,
-} from "@/components/ui/numeric-keypad"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
@@ -147,38 +145,49 @@ export function WaterCard({
       </section>
 
       <Sheet open={customOpen} onOpenChange={setCustomOpen}>
-        <SheetContent side="bottom" className="max-h-[85dvh]">
-          <SheetHeader>
+        <SheetContent
+          side="bottom"
+          className="flex max-h-[60dvh] flex-col gap-0 p-0"
+        >
+          <SheetHeader className="border-b border-border px-4 py-3">
             <SheetTitle>Adicionar água</SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col gap-3 px-4 pb-4">
-            <KeypadDisplay value={customMl} unit="ml" />
-            <NumericKeypad
-              value={customMl}
-              onChange={setCustomMl}
-              allowDecimal={false}
-              maxLength={5}
-            />
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => {
-                  setCustomMl("")
-                  setCustomOpen(false)
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={submitCustom}
-                disabled={!customMl || Number(customMl) <= 0}
-              >
-                <Plus />
-                Adicionar
-              </Button>
+          <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="wc-ml">Quantidade (ml)</Label>
+              <Input
+                id="wc-ml"
+                autoFocus
+                type="number"
+                inputMode="numeric"
+                step="50"
+                value={customMl}
+                onChange={(e) => setCustomMl(e.target.value)}
+                placeholder="ml"
+                enterKeyHint="done"
+                onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+              />
             </div>
+          </div>
+          <div className="pb-sheet-footer flex gap-2 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => {
+                setCustomMl("")
+                setCustomOpen(false)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={submitCustom}
+              disabled={!customMl || Number(customMl) <= 0}
+            >
+              <Plus />
+              Adicionar
+            </Button>
           </div>
         </SheetContent>
       </Sheet>

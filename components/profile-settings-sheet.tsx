@@ -27,15 +27,15 @@ export function ProfileSettingsSheet() {
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        className="max-h-[90dvh] overflow-y-auto"
+        className="flex max-h-[90dvh] flex-col gap-0 p-0"
       >
-        <SheetHeader>
+        <SheetHeader className="border-b border-border px-4 py-3">
           <SheetTitle>Configurações de {active.name}</SheetTitle>
           <SheetDescription>
             Nome, cor, metas diárias e lembretes de água.
           </SheetDescription>
         </SheetHeader>
-        <div className="px-4 pb-4">
+        <div className="pb-sheet-footer flex-1 overflow-y-auto px-4 pt-3">
           {/* key force-remounts on profile switch */}
           <ProfileSettingsCard key={active.id} profile={active} />
         </div>

@@ -28,6 +28,11 @@
 @utility pb-safe-or-4 {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
+/* Para o footer de bottom sheets (botões Cancelar/Salvar/etc).
+   Garante distância confortável do home indicator / área de gestos. */
+@utility pb-sheet-footer {
+  padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+}
 /* Reserva o espaço da BottomTabBar (h-14 = 3.5rem) + safe-bottom no <main>
    pra conteúdo rolável não ficar embaixo dela. */
 @utility pb-tabbar {

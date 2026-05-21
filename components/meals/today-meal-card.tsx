@@ -219,7 +219,7 @@ export function TodayMealCard({
                 : `Vai marcar todos os ${total} itens de ${meal.name} como consumidos.`}
             </SheetDescription>
           </SheetHeader>
-          <SheetFooter className="flex-row gap-2 px-4 pb-4">
+          <SheetFooter className="pb-sheet-footer flex-row gap-2 px-4 pt-3">
             <Button
               variant="secondary"
               onClick={() => setConfirmOpen(false)}
