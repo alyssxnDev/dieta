@@ -82,7 +82,7 @@ export function MealFormSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[95dvh] flex-col gap-0 p-0"
+        className="flex h-[92dvh] flex-col gap-0 p-0"
       >
         <SheetHeader className="border-b border-border px-4 py-3">
           <SheetTitle>Nova refeição</SheetTitle>
@@ -112,7 +112,7 @@ export function MealFormSheet({
             />
           </div>
 
-          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-3 py-2.5">
+          <label className="flex cursor-pointer items-center justify-between rounded-lg bg-muted/40 px-3 py-2">
             <span className="text-sm">Notificar</span>
             <Switch checked={notify} onCheckedChange={setNotify} />
           </label>

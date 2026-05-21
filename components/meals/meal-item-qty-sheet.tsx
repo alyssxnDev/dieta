@@ -62,7 +62,7 @@ export function MealItemQtySheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="flex max-h-[80dvh] flex-col gap-0 p-0"
+        className="flex h-[92dvh] flex-col gap-0 p-0"
       >
         <SheetHeader className="border-b border-border px-4 py-3">
           <SheetTitle>{item.food.name}</SheetTitle>

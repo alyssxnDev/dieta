@@ -186,4 +186,14 @@
   select {
     font-size: 16px;
   }
+  /* iOS Safari aplica estilo nativo "button" em type=time que extrapola
+     a largura do container em PWA standalone. Reset pra texto normal. */
+  input[type="time"],
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
 }

@@ -27,7 +27,7 @@ export function ProfileSettingsSheet() {
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        className="flex max-h-[90dvh] flex-col gap-0 p-0"
+        className="flex h-[92dvh] flex-col gap-0 p-0"
       >
         <SheetHeader className="border-b border-border px-4 py-3">
           <SheetTitle>Configurações de {active.name}</SheetTitle>

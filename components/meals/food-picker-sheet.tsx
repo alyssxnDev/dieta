@@ -43,7 +43,8 @@ export function FoodPickerSheet({
   const addToAll = useAddMealItemToAllByName()
   const [selected, setSelected] = useState<Food | null>(null)
   const [qty, setQty] = useState<string>("")
-  const [replicateAll, setReplicateAll] = useState(false)
+  // Default ON — mais comum o usuário querer em todas as refeições mesmo nome
+  const [replicateAll, setReplicateAll] = useState(true)
 
   const sorted = useMemo(
     () =>
@@ -56,7 +57,7 @@ export function FoodPickerSheet({
   const reset = () => {
     setSelected(null)
     setQty("")
-    setReplicateAll(false)
+    setReplicateAll(true)
   }
 
   const numericQty = Number(qty.replace(",", "."))
@@ -90,7 +91,7 @@ export function FoodPickerSheet({
     >
       <SheetContent
         side="bottom"
-        className="flex max-h-[95dvh] flex-col gap-0 p-0"
+        className="flex h-[92dvh] flex-col gap-0 p-0"
       >
         <SheetHeader className="relative border-b border-border px-4 py-3">
           {selected && (

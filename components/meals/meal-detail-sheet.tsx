@@ -20,6 +20,7 @@ import { mealTotals, normalizeFoodItem, r } from "@/lib/calculations/macros"
 import { dayName } from "@/lib/date"
 import {
   useAddMealItem,
+  useDeleteFoodFromAllMeals,
   useDeleteMealItem,
   useDeleteMealTemplate,
   useUpdateMealItem,
@@ -37,8 +38,7 @@ const UNIT_LABEL: Record<Food["measure_type"], string> = {
   unit: "un",
 }
 
-const timeToHHMM = (t: string | null): string =>
-  t ? t.slice(0, 5) : ""
+const timeToHHMM = (t: string | null): string => (t ? t.slice(0, 5) : "")
 const HHMMtoPostgres = (t: string): string | null =>
   /^\d{2}:\d{2}$/.test(t) ? `${t}:00` : null
 
@@ -58,6 +58,7 @@ export function MealDetailSheet({
   const addItem = useAddMealItem()
   const updItem = useUpdateMealItem()
   const delItem = useDeleteMealItem()
+  const delFromAll = useDeleteFoodFromAllMeals()
 
   const [name, setName] = useState(meal.name)
   const [time, setTime] = useState(timeToHHMM(meal.time))
@@ -66,7 +67,6 @@ export function MealDetailSheet({
   const [error, setError] = useState<string | null>(null)
 
   const [pickerOpen, setPickerOpen] = useState(false)
-  // IDs derivam os objetos do cache via useMemo (qty editor reflete deletes)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null)
   const [deletingMeal, setDeletingMeal] = useState(false)
@@ -117,11 +117,20 @@ export function MealDetailSheet({
     onOpenChange(false)
   }
 
-  const removeItem = async () => {
+  const removeItemOnlyHere = async () => {
     if (!deletingItem) return
     await delItem.mutateAsync({
       id: deletingItem.id,
       profileId: meal.profile_id,
+    })
+    setDeletingItemId(null)
+  }
+
+  const removeItemEverywhere = async () => {
+    if (!deletingItem) return
+    await delFromAll.mutateAsync({
+      profileId: meal.profile_id,
+      foodId: deletingItem.food.id,
     })
     setDeletingItemId(null)
   }
@@ -147,7 +156,7 @@ export function MealDetailSheet({
       >
         <SheetContent
           side="bottom"
-          className="flex max-h-[95dvh] flex-col gap-0 p-0"
+          className="flex h-[92dvh] flex-col gap-0 p-0"
         >
           <SheetHeader className="border-b border-border px-4 py-3">
             <SheetTitle>
@@ -155,7 +164,8 @@ export function MealDetailSheet({
             </SheetTitle>
           </SheetHeader>
 
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+          {/* Scrollable content com pb-sheet-footer no fim */}
+          <div className="pb-sheet-footer flex flex-1 flex-col gap-3 overflow-y-auto px-4 pt-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="md-name">Nome</Label>
               <Input
@@ -178,9 +188,10 @@ export function MealDetailSheet({
               />
             </div>
 
+            {/* Notify discreto, sem border pesada */}
             <label
               htmlFor="md-notify"
-              className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-3 py-2.5"
+              className="flex cursor-pointer items-center justify-between rounded-lg bg-muted/40 px-3 py-2"
             >
               <span className="text-sm">Notificar</span>
               <Switch
@@ -273,17 +284,6 @@ export function MealDetailSheet({
               Excluir refeição
             </Button>
           </div>
-
-          {/* Sticky footer */}
-          <div className="pb-sheet-footer border-t border-border bg-background/95 px-4 pt-3 backdrop-blur">
-            <Button
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              className="w-full"
-            >
-              Fechar
-            </Button>
-          </div>
         </SheetContent>
       </Sheet>
 
@@ -308,14 +308,15 @@ export function MealDetailSheet({
         }}
       />
 
-      <ConfirmSheet
+      {/* Multi-action delete: só desta refeição vs de TODAS as refeições */}
+      <DeleteItemSheet
         open={!!deletingItem}
         onOpenChange={(o) => !o && setDeletingItemId(null)}
-        title={`Excluir ${deletingItem?.food.name ?? "alimento"}?`}
-        description="Remove só desta refeição. Você pode adicionar de novo quando quiser."
-        confirmLabel="Excluir"
-        destructive
-        onConfirm={removeItem}
+        foodName={deletingItem?.food.name ?? ""}
+        onlyHerePending={delItem.isPending}
+        everywherePending={delFromAll.isPending}
+        onOnlyHere={removeItemOnlyHere}
+        onEverywhere={removeItemEverywhere}
       />
 
       <ConfirmSheet
@@ -328,5 +329,68 @@ export function MealDetailSheet({
         onConfirm={removeMeal}
       />
     </>
+  )
+}
+
+function DeleteItemSheet({
+  open,
+  onOpenChange,
+  foodName,
+  onlyHerePending,
+  everywherePending,
+  onOnlyHere,
+  onEverywhere,
+}: {
+  open: boolean
+  onOpenChange: (b: boolean) => void
+  foodName: string
+  onlyHerePending: boolean
+  everywherePending: boolean
+  onOnlyHere: () => void
+  onEverywhere: () => void
+}) {
+  const pending = onlyHerePending || everywherePending
+  return (
+    <Sheet open={open} onOpenChange={(o) => !pending && onOpenChange(o)}>
+      <SheetContent
+        side="bottom"
+        className="flex max-h-[60dvh] flex-col gap-0 p-0"
+      >
+        <SheetHeader className="px-4 py-3">
+          <SheetTitle>Excluir {foodName}?</SheetTitle>
+          <p className="text-muted-foreground text-xs">
+            Escolha onde remover.
+          </p>
+        </SheetHeader>
+        <div className="pb-sheet-footer flex flex-col gap-2 px-4 pt-3">
+          <Button
+            variant="destructive"
+            onClick={onOnlyHere}
+            disabled={pending}
+            className="w-full"
+          >
+            {onlyHerePending && <Loader2 className="animate-spin" />}
+            Só desta refeição
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onEverywhere}
+            disabled={pending}
+            className="w-full"
+          >
+            {everywherePending && <Loader2 className="animate-spin" />}
+            De todas as refeições com este alimento
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+            className="w-full"
+          >
+            Cancelar
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }

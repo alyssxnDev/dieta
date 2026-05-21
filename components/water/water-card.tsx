@@ -147,7 +147,7 @@ export function WaterCard({
       <Sheet open={customOpen} onOpenChange={setCustomOpen}>
         <SheetContent
           side="bottom"
-          className="flex max-h-[60dvh] flex-col gap-0 p-0"
+          className="flex h-[92dvh] flex-col gap-0 p-0"
         >
           <SheetHeader className="border-b border-border px-4 py-3">
             <SheetTitle>Adicionar água</SheetTitle>

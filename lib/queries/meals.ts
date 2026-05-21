@@ -294,6 +294,42 @@ export function useDeleteMealItem() {
   })
 }
 
+/**
+ * Remove um alimento de TODAS as refeições do perfil onde aparece.
+ * Útil quando user marca "tirei isso da minha dieta de vez".
+ */
+export function useDeleteFoodFromAllMeals() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      profileId: string
+      foodId: string
+    }): Promise<number> => {
+      const supabase = createClient()
+      // Acha todos os meal_templates do perfil (precisa pra filtrar items)
+      const { data: meals, error: e1 } = await supabase
+        .from("meal_templates")
+        .select("id")
+        .eq("profile_id", input.profileId)
+      if (e1) throw e1
+      const mealIds = (meals ?? []).map((m) => m.id)
+      if (mealIds.length === 0) return 0
+
+      // Deleta todos os items com aquele food_id dentro desses meals
+      const { data: deleted, error: e2 } = await supabase
+        .from("meal_template_items")
+        .delete()
+        .eq("food_id", input.foodId)
+        .in("meal_template_id", mealIds)
+        .select("id")
+      if (e2) throw e2
+      return (deleted ?? []).length
+    },
+    onSuccess: (_, input) =>
+      qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
+  })
+}
+
 // ---------- Item Completions ----------
 
 export function useMealItemCompletions(profileId: string | null, date: string) {
