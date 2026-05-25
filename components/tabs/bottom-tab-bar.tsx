@@ -24,7 +24,7 @@ export function BottomTabBar({ accent }: { accent?: string }) {
       className="bg-background/85 fixed inset-x-0 bottom-0 z-40 border-t border-border backdrop-blur-xl"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="mx-auto grid h-14 max-w-xl grid-cols-4">
+      <ul className="mx-auto grid h-12 max-w-xl grid-cols-4">
         {TABS.map((t) => {
           const active = pathname === t.href || pathname.startsWith(`${t.href}/`)
           const Icon = t.icon
@@ -34,7 +34,7 @@ export function BottomTabBar({ accent }: { accent?: string }) {
                 href={t.href}
                 onClick={() => haptic(6)}
                 className={cn(
-                  "flex h-full flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors",
+                  "flex h-full flex-col items-center justify-end gap-0.5 pb-1 text-[10px] font-medium transition-colors",
                   active ? "" : "text-muted-foreground hover:text-foreground",
                 )}
                 style={active && accent ? { color: accent } : undefined}

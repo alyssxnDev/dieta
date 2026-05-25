@@ -33,14 +33,14 @@
 @utility pb-sheet-footer {
   padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
 }
-/* Reserva o espaço da BottomTabBar (h-14 = 3.5rem) + safe-bottom no <main>
+/* Reserva o espaço da BottomTabBar (h-12 = 3rem) + safe-bottom no <main>
    pra conteúdo rolável não ficar embaixo dela. */
 @utility pb-tabbar {
-  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(3rem + env(safe-area-inset-bottom));
 }
 /* Posição absoluta pra FAB ficar acima da tab bar respeitando safe-bottom. */
 @utility bottom-fab {
-  bottom: calc(3.5rem + env(safe-area-inset-bottom) + 1rem);
+  bottom: calc(3rem + env(safe-area-inset-bottom) + 1rem);
 }
 /* tabular-nums em qualquer número da UI (kcal, g, ml, %). */
 @utility tabular-nums {
