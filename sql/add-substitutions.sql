@@ -29,6 +29,16 @@ update public.foods set category = 'livre'    where category is null and lower(n
   'alface','tomate'
 );
 
+-- 2b) Catch-all: qualquer alimento ainda sem categoria, decide pelos macros.
+--     (garante que NENHUM alimento fique sem categoria — inclusive customizados)
+update public.foods set category = case
+  when reference_quantity > 0 and (kcal / reference_quantity) * 100 < 35 then 'livre'
+  when (fat_g * 9) >= (carb_g * 4) and (fat_g * 9) >= (protein_g * 4) then 'gordura'
+  when (protein_g * 4) >= (carb_g * 4) then 'proteina'
+  else 'carbo'
+end
+where category is null;
+
 -- 3) Tabela de overrides (troca do dia)
 create table if not exists public.meal_item_overrides (
   id                    uuid primary key default gen_random_uuid(),

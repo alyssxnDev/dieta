@@ -206,6 +206,14 @@ update public.foods set category = 'gordura' where category is null and lower(na
   'abacate','azeite de oliva');
 update public.foods set category = 'livre' where category is null and lower(name) in (
   'alface','tomate');
+-- Catch-all: qualquer alimento ainda sem categoria, decide pelos macros
+update public.foods set category = case
+  when reference_quantity > 0 and (kcal / reference_quantity) * 100 < 35 then 'livre'
+  when (fat_g * 9) >= (carb_g * 4) and (fat_g * 9) >= (protein_g * 4) then 'gordura'
+  when (protein_g * 4) >= (carb_g * 4) then 'proteina'
+  else 'carbo'
+end
+where category is null;
 
 
 -- =============================================================================
