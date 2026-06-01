@@ -8,6 +8,34 @@ const STYLE: Record<FoodCategory, { label: string; className: string }> = {
   livre: { label: "Livre", className: "bg-zinc-500/15 text-zinc-600" },
 }
 
+// Cor sólida do dot (compacto, pra Planner/Hoje).
+const DOT: Record<FoodCategory, string> = {
+  carbo: "bg-blue-500",
+  proteina: "bg-rose-500",
+  gordura: "bg-yellow-500",
+  livre: "bg-zinc-400",
+}
+
+/** Bolinha de categoria — leitura rápida da composição da refeição. */
+export function CategoryDot({
+  category,
+  className,
+}: {
+  category: FoodCategory | null
+  className?: string
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-block size-2 shrink-0 rounded-full",
+        category ? DOT[category] : "bg-transparent",
+        className,
+      )}
+    />
+  )
+}
+
 /** Badge de categoria de macro (carbo/proteína/gordura/livre). */
 export function CategoryBadge({
   category,

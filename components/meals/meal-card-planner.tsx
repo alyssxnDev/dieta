@@ -2,6 +2,7 @@
 
 import { Clock } from "lucide-react"
 
+import { CategoryDot } from "@/components/foods/category-badge"
 import { mealTotals, normalizeFoodItem, r } from "@/lib/calculations/macros"
 import type { MealTemplateWithItems } from "@/types/database"
 
@@ -50,11 +51,11 @@ export function MealCardPlanner({
             return (
               <li
                 key={it.id}
-                className="text-xs leading-snug"
+                className="flex items-center gap-1.5 text-xs leading-snug"
               >
+                <CategoryDot category={it.food.category} />
                 <span className="text-foreground">{it.food.name}</span>
                 <span className="text-muted-foreground tabular-nums">
-                  {" · "}
                   {r(it.quantity)}
                   {UNIT_LABEL[it.food.measure_type]}
                   {" · "}

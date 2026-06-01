@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeftRight, Check, ChevronDown, Clock } from "lucide-react"
 import { useState } from "react"
 
+import { CategoryDot } from "@/components/foods/category-badge"
 import {
   effectiveItem,
   normalizeFoodItem,
@@ -191,10 +192,11 @@ export function TodayMealCard({
                           <div className="min-w-0 flex-1">
                             <p
                               className={cn(
-                                "flex items-center gap-1 text-sm",
+                                "flex items-center gap-1.5 text-sm",
                                 done && "text-muted-foreground line-through",
                               )}
                             >
+                              <CategoryDot category={eff.food.category} />
                               <span className="truncate">{eff.food.name}</span>
                               {swapped && (
                                 <ArrowLeftRight
