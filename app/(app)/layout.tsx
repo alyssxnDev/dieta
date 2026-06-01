@@ -4,6 +4,7 @@ import { ProfileSettingsSheet } from "@/components/profile-settings-sheet"
 import { ProfileSwitcher } from "@/components/profile-switcher"
 import { BottomTabBar } from "@/components/tabs/bottom-tab-bar"
 import { useActiveProfile } from "@/lib/hooks/use-active-profile"
+import { useRealtimeSync } from "@/lib/hooks/use-realtime-sync"
 
 // Shell autenticado.
 //  - min-h-screen (vh) é estável em PWA standalone iOS — dvh tava causando
@@ -16,6 +17,8 @@ import { useActiveProfile } from "@/lib/hooks/use-active-profile"
 //  - Header: ProfileSwitcher + gear icon (sempre visível em todas as abas)
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { active } = useActiveProfile()
+  // Sync ao vivo entre os 2 celulares (Supabase Realtime).
+  useRealtimeSync()
 
   return (
     <>

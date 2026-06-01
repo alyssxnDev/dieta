@@ -1,6 +1,12 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 import { createClient } from "@/lib/supabase/client"
 import type {
@@ -11,7 +17,34 @@ import type {
   MealTemplateWithItems,
 } from "@/types/database"
 
-import { mealKeys } from "./keys"
+import { foodKeys, mealKeys } from "./keys"
+
+// ---------- Helpers de cache otimista ----------
+
+/** Atualiza TODAS as queries de templates do perfil (templatesByDay + all). */
+function patchTemplatesCache(
+  qc: QueryClient,
+  profileId: string,
+  updater: (meals: MealTemplateWithItems[]) => MealTemplateWithItems[],
+) {
+  qc.setQueriesData<MealTemplateWithItems[]>(
+    { queryKey: mealKeys.templates(profileId) },
+    (old) => (old ? updater(old) : old),
+  )
+}
+
+/** Snapshot pra rollback em caso de erro. */
+function snapshotTemplates(qc: QueryClient, profileId: string) {
+  return qc.getQueriesData<MealTemplateWithItems[]>({
+    queryKey: mealKeys.templates(profileId),
+  })
+}
+function restoreTemplates(
+  qc: QueryClient,
+  snapshot: ReturnType<typeof snapshotTemplates>,
+) {
+  for (const [key, data] of snapshot) qc.setQueryData(key, data)
+}
 
 // ---------- Reads ----------
 
@@ -21,6 +54,8 @@ export function useMealTemplatesByDay(
 ) {
   return useQuery({
     enabled: !!profileId,
+    // Mantém o dia anterior na tela enquanto o novo carrega (carrossel liso).
+    placeholderData: keepPreviousData,
     queryKey: mealKeys.templatesByDay(profileId ?? "_", dayOfWeek),
     queryFn: async (): Promise<MealTemplateWithItems[]> => {
       if (!profileId) return []
@@ -112,7 +147,17 @@ export function useDeleteMealTemplate() {
         .eq("id", input.id)
       if (error) throw error
     },
-    onSuccess: (_, input) => {
+    // Optimistic: some o card na hora
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: mealKeys.templates(input.profileId) })
+      const snap = snapshotTemplates(qc, input.profileId)
+      patchTemplatesCache(qc, input.profileId, (meals) =>
+        meals.filter((m) => m.id !== input.id),
+      )
+      return { snap }
+    },
+    onError: (_e, input, ctx) => ctx && restoreTemplates(qc, ctx.snap),
+    onSettled: (_, __, input) => {
       qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) })
     },
   })
@@ -200,15 +245,45 @@ export function useAddMealItem() {
       if (error) throw error
       return data as MealTemplateItem
     },
-    onSuccess: (_, input) =>
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: mealKeys.templates(input.profileId) })
+      const snap = snapshotTemplates(qc, input.profileId)
+      // Pega o food do cache pra montar o item otimista
+      const foods = qc.getQueryData<Food[]>(foodKeys.list())
+      const food = foods?.find((f) => f.id === input.foodId)
+      if (food) {
+        patchTemplatesCache(qc, input.profileId, (meals) =>
+          meals.map((m) =>
+            m.id === input.mealId
+              ? {
+                  ...m,
+                  items: [
+                    ...m.items,
+                    {
+                      id: `optimistic-${Date.now()}`,
+                      meal_template_id: m.id,
+                      food_id: input.foodId,
+                      quantity: input.quantity,
+                      order_index: input.order_index ?? m.items.length,
+                      food,
+                    },
+                  ],
+                }
+              : m,
+          ),
+        )
+      }
+      return { snap }
+    },
+    onError: (_e, input, ctx) => ctx && restoreTemplates(qc, ctx.snap),
+    onSettled: (_, __, input) =>
       qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
   })
 }
 
 /**
  * Adiciona MESMO alimento+quantity em TODAS as meal_templates do perfil que
- * tenham o mesmo nome (case-insensitive) da meal de referência. Útil pra
- * "banana toda segunda" → "banana em todas as refeições 'Café da manhã'".
+ * tenham o mesmo nome (case-insensitive) da meal de referência.
  */
 export function useAddMealItemToAllByName() {
   const qc = useQueryClient()
@@ -220,7 +295,6 @@ export function useAddMealItemToAllByName() {
       quantity: number
     }): Promise<number> => {
       const supabase = createClient()
-      // 1. acha todas as refeições com aquele nome desse perfil
       const { data: meals, error: e1 } = await supabase
         .from("meal_templates")
         .select("id")
@@ -228,7 +302,6 @@ export function useAddMealItemToAllByName() {
         .ilike("name", input.mealName)
       if (e1) throw e1
       if (!meals || meals.length === 0) return 0
-      // 2. pra cada, pega o maior order_index dos items existentes (1 query agregado)
       const ids = meals.map((m) => m.id)
       const { data: existing, error: e2 } = await supabase
         .from("meal_template_items")
@@ -240,7 +313,6 @@ export function useAddMealItemToAllByName() {
         const cur = maxByMeal.get(it.meal_template_id) ?? -1
         if (it.order_index > cur) maxByMeal.set(it.meal_template_id, it.order_index)
       }
-      // 3. insere 1 item por meal
       const rows = meals.map((m) => ({
         meal_template_id: m.id,
         food_id: input.foodId,
@@ -273,7 +345,21 @@ export function useUpdateMealItem() {
         .eq("id", input.id)
       if (error) throw error
     },
-    onSuccess: (_, input) =>
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: mealKeys.templates(input.profileId) })
+      const snap = snapshotTemplates(qc, input.profileId)
+      patchTemplatesCache(qc, input.profileId, (meals) =>
+        meals.map((m) => ({
+          ...m,
+          items: m.items.map((it) =>
+            it.id === input.id ? { ...it, quantity: input.quantity } : it,
+          ),
+        })),
+      )
+      return { snap }
+    },
+    onError: (_e, input, ctx) => ctx && restoreTemplates(qc, ctx.snap),
+    onSettled: (_, __, input) =>
       qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
   })
 }
@@ -289,15 +375,24 @@ export function useDeleteMealItem() {
         .eq("id", input.id)
       if (error) throw error
     },
-    onSuccess: (_, input) =>
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: mealKeys.templates(input.profileId) })
+      const snap = snapshotTemplates(qc, input.profileId)
+      patchTemplatesCache(qc, input.profileId, (meals) =>
+        meals.map((m) => ({
+          ...m,
+          items: m.items.filter((it) => it.id !== input.id),
+        })),
+      )
+      return { snap }
+    },
+    onError: (_e, input, ctx) => ctx && restoreTemplates(qc, ctx.snap),
+    onSettled: (_, __, input) =>
       qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
   })
 }
 
-/**
- * Remove um alimento de TODAS as refeições do perfil onde aparece.
- * Útil quando user marca "tirei isso da minha dieta de vez".
- */
+/** Remove um alimento de TODAS as refeições do perfil onde aparece. */
 export function useDeleteFoodFromAllMeals() {
   const qc = useQueryClient()
   return useMutation({
@@ -306,7 +401,6 @@ export function useDeleteFoodFromAllMeals() {
       foodId: string
     }): Promise<number> => {
       const supabase = createClient()
-      // Acha todos os meal_templates do perfil (precisa pra filtrar items)
       const { data: meals, error: e1 } = await supabase
         .from("meal_templates")
         .select("id")
@@ -314,8 +408,6 @@ export function useDeleteFoodFromAllMeals() {
       if (e1) throw e1
       const mealIds = (meals ?? []).map((m) => m.id)
       if (mealIds.length === 0) return 0
-
-      // Deleta todos os items com aquele food_id dentro desses meals
       const { data: deleted, error: e2 } = await supabase
         .from("meal_template_items")
         .delete()
@@ -325,7 +417,19 @@ export function useDeleteFoodFromAllMeals() {
       if (e2) throw e2
       return (deleted ?? []).length
     },
-    onSuccess: (_, input) =>
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: mealKeys.templates(input.profileId) })
+      const snap = snapshotTemplates(qc, input.profileId)
+      patchTemplatesCache(qc, input.profileId, (meals) =>
+        meals.map((m) => ({
+          ...m,
+          items: m.items.filter((it) => it.food_id !== input.foodId),
+        })),
+      )
+      return { snap }
+    },
+    onError: (_e, input, ctx) => ctx && restoreTemplates(qc, ctx.snap),
+    onSettled: (_, __, input) =>
       qc.invalidateQueries({ queryKey: mealKeys.templates(input.profileId) }),
   })
 }
@@ -335,6 +439,7 @@ export function useDeleteFoodFromAllMeals() {
 export function useMealItemCompletions(profileId: string | null, date: string) {
   return useQuery({
     enabled: !!profileId,
+    placeholderData: keepPreviousData,
     queryKey: mealKeys.completions(profileId ?? "_", date),
     queryFn: async (): Promise<MealItemCompletion[]> => {
       if (!profileId) return []
@@ -412,7 +517,7 @@ export function useToggleMealItemCompletion() {
   })
 }
 
-/** Marca/desmarca TODOS os itens de uma refeição num dia (bulk action). */
+/** Marca/desmarca TODOS os itens de uma refeição num dia (bulk, optimistic). */
 export function useToggleAllMealItems() {
   const qc = useQueryClient()
   return useMutation({
@@ -420,7 +525,6 @@ export function useToggleAllMealItems() {
       profileId: string
       mealItemIds: string[]
       date: string
-      /** Se true: completa tudo. Se false: desmarca tudo. */
       complete: boolean
     }): Promise<void> => {
       if (input.mealItemIds.length === 0) return
@@ -431,7 +535,6 @@ export function useToggleAllMealItems() {
           meal_template_item_id: id,
           date: input.date,
         }))
-        // upsert pra ignorar duplicatas (item já marcado)
         const { error } = await supabase
           .from("meal_item_completions")
           .upsert(rows, {
@@ -449,7 +552,42 @@ export function useToggleAllMealItems() {
         if (error) throw error
       }
     },
-    onSuccess: (_, input) =>
+    onMutate: async (input) => {
+      const key = mealKeys.completions(input.profileId, input.date)
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<MealItemCompletion[]>(key) ?? []
+      const idSet = new Set(input.mealItemIds)
+      let next: MealItemCompletion[]
+      if (input.complete) {
+        const existing = new Set(prev.map((c) => c.meal_template_item_id))
+        const added = input.mealItemIds
+          .filter((id) => !existing.has(id))
+          .map(
+            (id) =>
+              ({
+                id: `optimistic-${id}`,
+                profile_id: input.profileId,
+                meal_template_item_id: id,
+                date: input.date,
+                completed_at: new Date().toISOString(),
+              }) as MealItemCompletion,
+          )
+        next = [...prev, ...added]
+      } else {
+        next = prev.filter((c) => !idSet.has(c.meal_template_item_id))
+      }
+      qc.setQueryData(key, next)
+      return { prev }
+    },
+    onError: (_e, input, ctx) => {
+      if (ctx?.prev) {
+        qc.setQueryData(
+          mealKeys.completions(input.profileId, input.date),
+          ctx.prev,
+        )
+      }
+    },
+    onSettled: (_, __, input) =>
       qc.invalidateQueries({
         queryKey: mealKeys.completions(input.profileId, input.date),
       }),
@@ -464,6 +602,7 @@ export function useMealItemCompletionsRange(
 ) {
   return useQuery({
     enabled: !!profileId,
+    placeholderData: keepPreviousData,
     queryKey: mealKeys.completionsRange(profileId ?? "_", fromDate, toDate),
     queryFn: async (): Promise<MealItemCompletion[]> => {
       if (!profileId) return []
@@ -483,6 +622,7 @@ export function useMealItemCompletionsRange(
 export function useAllMealTemplates(profileId: string | null) {
   return useQuery({
     enabled: !!profileId,
+    placeholderData: keepPreviousData,
     queryKey: mealKeys.templates(profileId ?? "_"),
     queryFn: async (): Promise<MealTemplateWithItems[]> => {
       if (!profileId) return []

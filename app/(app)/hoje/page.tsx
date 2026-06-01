@@ -7,8 +7,9 @@ import { TodayMealCard } from "@/components/meals/today-meal-card"
 import { WaterCard } from "@/components/water/water-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { dayTotals } from "@/lib/calculations/macros"
-import { formatLongDate, today, toIsoDate } from "@/lib/date"
+import { formatLongDate } from "@/lib/date"
 import { useActiveProfile } from "@/lib/hooks/use-active-profile"
+import { useToday } from "@/lib/hooks/use-today"
 import {
   useMealItemCompletions,
   useMealTemplatesByDay,
@@ -18,8 +19,8 @@ import {
 
 export default function HojePage() {
   const { active, isLoading: profileLoading } = useActiveProfile()
-  const date = useMemo(() => toIsoDate(today()), [])
-  const dow = today().getDay()
+  // Data reativa — vira sozinha à meia-noite (PWA aberto cruzando o dia).
+  const { iso: date, date: todayDate, dow } = useToday()
 
   const { data: meals, isLoading: mealsLoading } = useMealTemplatesByDay(
     active?.id ?? null,
@@ -76,10 +77,10 @@ export default function HojePage() {
     <main className="flex flex-1 flex-col gap-4 px-4 pb-4">
       <header>
         <p className="text-muted-foreground text-xs uppercase tracking-wide">
-          {formatLongDate(today()).split(",")[0]}
+          {formatLongDate(todayDate).split(",")[0]}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          {formatLongDate(today()).split(",")[1]?.trim()}
+          {formatLongDate(todayDate).split(",")[1]?.trim()}
         </h1>
       </header>
 

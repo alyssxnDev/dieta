@@ -14,7 +14,9 @@
     "@serwist/next": "^9.5.11",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
-    "@tanstack/react-query": "^5.100.11",
+    "@tanstack/query-sync-storage-persister": "^5.100.14",
+    "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-query-persist-client": "^5.100.14",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.2.1",
@@ -39,6 +41,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -1,6 +1,11 @@
 "use client"
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 import { createClient } from "@/lib/supabase/client"
 import type { WaterLog } from "@/types/database"
@@ -10,6 +15,7 @@ import { waterKeys } from "./keys"
 export function useWaterLogs(profileId: string | null, date: string) {
   return useQuery({
     enabled: !!profileId,
+    placeholderData: keepPreviousData,
     queryKey: waterKeys.forDate(profileId ?? "_", date),
     queryFn: async (): Promise<WaterLog[]> => {
       if (!profileId) return []
@@ -114,6 +120,7 @@ export function useWaterLogsRange(
 ) {
   return useQuery({
     enabled: !!profileId,
+    placeholderData: keepPreviousData,
     queryKey: waterKeys.range(profileId ?? "_", fromDate, toDate),
     queryFn: async (): Promise<WaterLog[]> => {
       if (!profileId) return []

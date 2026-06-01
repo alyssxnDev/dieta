@@ -168,6 +168,26 @@ create policy "authenticated_full_access" on public.water_logs
 
 
 -- =============================================================================
+-- Realtime — sync ao vivo entre os 2 celulares.
+-- Adiciona as tabelas na publication `supabase_realtime` pra o app receber
+-- mudanças em tempo real (um marca refeição → o outro vê na hora).
+-- Idempotente: ignora se a tabela já está na publication.
+-- =============================================================================
+do $$
+begin
+  alter publication supabase_realtime add table
+    public.profiles,
+    public.foods,
+    public.meal_templates,
+    public.meal_template_items,
+    public.meal_item_completions,
+    public.water_logs;
+exception
+  when duplicate_object then null;  -- já estava na publication
+end $$;
+
+
+-- =============================================================================
 -- Seeds — os 2 perfis. Banco de alimentos começa vazio.
 -- =============================================================================
 insert into public.profiles
