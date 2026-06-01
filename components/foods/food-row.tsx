@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2 } from "lucide-react"
 
+import { CategoryBadge } from "@/components/foods/category-badge"
 import { r } from "@/lib/calculations/macros"
 import type { Food } from "@/types/database"
 
@@ -23,7 +24,10 @@ export function FoodRow({
   return (
     <div className="bg-card flex items-center gap-2 rounded-2xl border border-border px-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{food.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium">{food.name}</p>
+          <CategoryBadge category={food.category} />
+        </div>
         <p className="text-muted-foreground tabular-nums truncate text-xs">
           {r(food.reference_quantity)}
           {UNIT_LABEL[food.measure_type]} · {r(food.kcal)} kcal · C{" "}
