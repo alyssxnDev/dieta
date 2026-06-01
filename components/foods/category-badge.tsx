@@ -8,12 +8,13 @@ const STYLE: Record<FoodCategory, { label: string; className: string }> = {
   livre: { label: "Livre", className: "bg-zinc-500/15 text-zinc-600" },
 }
 
-// Cor sólida do dot (compacto, pra Planner/Hoje).
+// Cor do dot (compacto, pra Planner/Hoje) — tonalidade mais clara, casando
+// com o visual leve do badge da aba Alimentos.
 const DOT: Record<FoodCategory, string> = {
-  carbo: "bg-blue-500",
-  proteina: "bg-rose-500",
-  gordura: "bg-yellow-500",
-  livre: "bg-zinc-400",
+  carbo: "bg-blue-400",
+  proteina: "bg-rose-400",
+  gordura: "bg-yellow-400",
+  livre: "bg-zinc-300",
 }
 
 /** Bolinha de categoria — leitura rápida da composição da refeição. */
