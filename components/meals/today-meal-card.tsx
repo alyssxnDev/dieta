@@ -1,30 +1,39 @@
 "use client"
 
 import { AnimatePresence, motion } from "framer-motion"
-import { Check, ChevronDown, Clock } from "lucide-react"
+import { ArrowLeftRight, Check, ChevronDown, Clock } from "lucide-react"
 import { useState } from "react"
 
-import { normalizeFoodItem, r } from "@/lib/calculations/macros"
+import {
+  effectiveItem,
+  normalizeFoodItem,
+  type OverrideMap,
+  r,
+} from "@/lib/calculations/macros"
 import { haptic } from "@/lib/haptic"
 import { cn } from "@/lib/utils"
-import type { MealTemplateWithItems } from "@/types/database"
+import type { Food, MealTemplateItem, MealTemplateWithItems } from "@/types/database"
 
 const UNIT_LABEL = { g: "g", ml: "ml", unit: "un" } as const
 
 export function TodayMealCard({
   meal,
   completedItemIds,
+  overrides,
   late,
   accentColor,
   onToggleItem,
   onToggleAll,
+  onSwapItem,
 }: {
   meal: MealTemplateWithItems
   completedItemIds: Set<string>
+  overrides: OverrideMap
   late: boolean
   accentColor: string
   onToggleItem: (itemId: string, currentlyCompleted: boolean) => void
   onToggleAll: (complete: boolean) => void
+  onSwapItem: (item: MealTemplateItem & { food: Food }) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -34,7 +43,10 @@ export function TodayMealCard({
   const partial = completed > 0 && !allDone
   const consumed = meal.items
     .filter((it) => completedItemIds.has(it.id))
-    .reduce((acc, it) => acc + normalizeFoodItem(it.food, it.quantity).kcal, 0)
+    .reduce((acc, it) => {
+      const eff = effectiveItem(it, overrides)
+      return acc + normalizeFoodItem(eff.food, eff.quantity).kcal
+    }, 0)
   const time = meal.time?.slice(0, 5)
 
   const toggleExpand = () => {
@@ -140,51 +152,82 @@ export function TodayMealCard({
                 <div className="flex flex-col gap-0.5 px-2 py-2">
                   {meal.items.map((it) => {
                     const done = completedItemIds.has(it.id)
-                    const macros = normalizeFoodItem(it.food, it.quantity)
+                    const swapped = overrides.has(it.id)
+                    const eff = effectiveItem(it, overrides)
+                    const macros = normalizeFoodItem(eff.food, eff.quantity)
                     return (
-                      <button
+                      <div
                         key={it.id}
-                        type="button"
-                        onClick={() => {
-                          haptic(8)
-                          onToggleItem(it.id, done)
-                        }}
-                        className="hover:bg-muted/50 flex items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors"
-                        aria-pressed={done}
+                        className="hover:bg-muted/50 flex items-center gap-1 rounded-lg pr-1 transition-colors"
                       >
-                        <motion.div
-                          initial={false}
-                          animate={{ scale: done ? 1 : 0.92 }}
-                          transition={{
-                            type: "spring",
-                            stiffness: 500,
-                            damping: 18,
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptic(8)
+                            onToggleItem(it.id, done)
                           }}
-                          className={cn(
-                            "flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                            done
-                              ? "border-transparent bg-emerald-500 text-zinc-950"
-                              : "border-border",
-                          )}
+                          className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2 text-left"
+                          aria-pressed={done}
                         >
-                          {done && <Check className="size-3.5" strokeWidth={3} />}
-                        </motion.div>
-                        <div className="min-w-0 flex-1">
-                          <p
+                          <motion.div
+                            initial={false}
+                            animate={{ scale: done ? 1 : 0.92 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 18,
+                            }}
                             className={cn(
-                              "text-sm",
-                              done && "text-muted-foreground line-through",
+                              "flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                              done
+                                ? "border-transparent bg-emerald-500 text-zinc-950"
+                                : "border-border",
                             )}
                           >
-                            {it.food.name}
-                          </p>
-                          <p className="text-muted-foreground tabular-nums text-[11px]">
-                            {r(it.quantity)}
-                            {UNIT_LABEL[it.food.measure_type]} ·{" "}
-                            {r(macros.kcal)} kcal
-                          </p>
-                        </div>
-                      </button>
+                            {done && (
+                              <Check className="size-3.5" strokeWidth={3} />
+                            )}
+                          </motion.div>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={cn(
+                                "flex items-center gap-1 text-sm",
+                                done && "text-muted-foreground line-through",
+                              )}
+                            >
+                              <span className="truncate">{eff.food.name}</span>
+                              {swapped && (
+                                <ArrowLeftRight
+                                  className="size-3 shrink-0"
+                                  style={{ color: accentColor }}
+                                />
+                              )}
+                            </p>
+                            <p className="text-muted-foreground tabular-nums text-[11px]">
+                              {r(eff.quantity)}
+                              {UNIT_LABEL[eff.food.measure_type]} ·{" "}
+                              {r(macros.kcal)} kcal
+                              {swapped && (
+                                <span className="opacity-70">
+                                  {" "}
+                                  · no lugar de {it.food.name}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptic(6)
+                            onSwapItem(it)
+                          }}
+                          aria-label={`Trocar ${it.food.name}`}
+                          className="text-muted-foreground hover:text-foreground flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                        >
+                          <ArrowLeftRight className="size-4" />
+                        </button>
+                      </div>
                     )
                   })}
                 </div>

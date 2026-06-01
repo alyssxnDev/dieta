@@ -20,6 +20,9 @@ export const mealKeys = {
   /** Faixa de datas, usada no painel pra streak/gráfico. */
   completionsRange: (profileId: string, from: string, to: string) =>
     [...mealKeys.all, "completionsRange", profileId, from, to] as const,
+  /** Substituições do dia (Hoje). */
+  overrides: (profileId: string, date: string) =>
+    [...mealKeys.all, "overrides", profileId, date] as const,
 }
 
 export const waterKeys = {

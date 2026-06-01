@@ -151,6 +151,14 @@ Sheets de confirmação curtos (sem input) usam `max-h-[50dvh|60dvh]`.
 - Refeição "completa" = todos os items dela checados naquele dia.
 - Streak de refeição computado em `painel/page.tsx` agrupando items por meal.
 
+### Substituições (categoria + override do dia)
+- `foods.category` (`carbo|proteina|gordura|livre`) — macro dominante. Cadastro sugere automático (`suggestCategory` em `lib/calculations/macros.ts`), usuário confirma.
+- `meal_item_overrides` — troca de um item por outro alimento **só naquele dia** (Hoje), sem mexer no planner. Sincroniza via realtime.
+- Troca **trava por categoria**: só lista alimentos da mesma categoria, e calcula a quantidade equivalente automático (`equivalentQuantity` iguala o macro da categoria; `livre` iguala por peso). Sem entrada manual.
+- `effectiveItem(item, overrides)` resolve food/qty efetivos; `dayTotals`/`mealTotals` aceitam `OverrideMap`.
+- UI: `FoodSwapSheet` + botão trocar no `TodayMealCard`. Read de override é **defensivo** (retorna `[]` se a tabela não existir — degrada sem quebrar).
+- SQL: `sql/add-substitutions.sql` (snippet isolado seguro) — adiciona coluna + backfill + tabela. Espelhado no `schema.sql`.
+
 ### Forced light bg em recharts tooltips
 Tooltips dos gráficos no painel usam strings literais `#ffffff` / `#e4e4e7` / `#71717a` / `#18181b` porque recharts não pega CSS custom properties bem.
 

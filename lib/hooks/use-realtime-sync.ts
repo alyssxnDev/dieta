@@ -37,6 +37,9 @@ export function useRealtimeSync() {
       .on("postgres_changes", tbl("meal_item_completions"), () =>
         bump("meals", mealKeys.all),
       )
+      .on("postgres_changes", tbl("meal_item_overrides"), () =>
+        bump("meals", mealKeys.all),
+      )
       .on("postgres_changes", tbl("meal_templates"), () =>
         bump("meals", mealKeys.all),
       )

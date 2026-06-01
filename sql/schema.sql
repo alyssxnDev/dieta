@@ -56,8 +56,14 @@ create table if not exists public.foods (
   carb_g              numeric not null default 0 check (carb_g     >= 0),
   protein_g           numeric not null default 0 check (protein_g  >= 0),
   fat_g               numeric not null default 0 check (fat_g      >= 0),
+  category            text check (category in ('carbo','proteina','gordura','livre')),
   created_at          timestamptz not null default now()
 );
+
+-- category pode ter sido adicionada depois — garante a coluna em bancos antigos
+alter table public.foods
+  add column if not exists category text
+  check (category in ('carbo','proteina','gordura','livre'));
 
 create index if not exists foods_name_lower_idx on public.foods (lower(name));
 
@@ -131,6 +137,25 @@ create index if not exists water_logs_profile_date_idx
 
 
 -- =============================================================================
+-- meal_item_overrides — troca de um item por um substituto, só naquele dia.
+-- (Execução no Hoje: trocar frango por carne moída sem mexer no planner.)
+-- =============================================================================
+create table if not exists public.meal_item_overrides (
+  id                    uuid primary key default gen_random_uuid(),
+  profile_id            uuid not null references public.profiles(id)            on delete cascade,
+  meal_template_item_id uuid not null references public.meal_template_items(id) on delete cascade,
+  date                  date not null,
+  substitute_food_id    uuid not null references public.foods(id)              on delete cascade,
+  quantity              numeric not null check (quantity > 0),
+  created_at            timestamptz not null default now(),
+  unique (profile_id, meal_template_item_id, date)
+);
+
+create index if not exists meal_item_overrides_profile_date_idx
+  on public.meal_item_overrides (profile_id, date);
+
+
+-- =============================================================================
 -- RLS — só `authenticated` entra. (drop+create = idempotente, não toca dados)
 -- =============================================================================
 alter table public.profiles                enable row level security;
@@ -139,6 +164,7 @@ alter table public.meal_templates          enable row level security;
 alter table public.meal_template_items     enable row level security;
 alter table public.meal_item_completions   enable row level security;
 alter table public.water_logs              enable row level security;
+alter table public.meal_item_overrides     enable row level security;
 
 drop policy if exists "authenticated_full_access" on public.profiles;
 create policy "authenticated_full_access" on public.profiles
@@ -164,6 +190,23 @@ drop policy if exists "authenticated_full_access" on public.water_logs;
 create policy "authenticated_full_access" on public.water_logs
   for all to authenticated using (true) with check (true);
 
+drop policy if exists "authenticated_full_access" on public.meal_item_overrides;
+create policy "authenticated_full_access" on public.meal_item_overrides
+  for all to authenticated using (true) with check (true);
+
+-- Backfill de category (só onde está nulo — não sobrescreve edições suas)
+update public.foods set category = 'carbo' where category is null and lower(name) in (
+  'arroz branco cozido','banana prata','banana caturra','mamão','pão francês',
+  'pão de forma (fatia)','batata cozida','aveia','maçã');
+update public.foods set category = 'proteina' where category is null and lower(name) in (
+  'peito de frango cru','peito de frango grelhado','peito de frango desfiado',
+  'coxa/sobrecoxa de frango assada','acém cozido','músculo cozido',
+  'carne moída (patinho) cozida','iogurte natural sem lactose','ovo');
+update public.foods set category = 'gordura' where category is null and lower(name) in (
+  'abacate','azeite de oliva');
+update public.foods set category = 'livre' where category is null and lower(name) in (
+  'alface','tomate');
+
 
 -- =============================================================================
 -- Realtime — sync ao vivo entre os 2 celulares (idempotente).
@@ -176,7 +219,8 @@ begin
     public.meal_templates,
     public.meal_template_items,
     public.meal_item_completions,
-    public.water_logs;
+    public.water_logs,
+    public.meal_item_overrides;
 exception
   when duplicate_object then null;  -- já estava na publication
 end $$;

@@ -4,6 +4,11 @@
 
 export type MeasureType = "g" | "ml" | "unit"
 
+// Categoria do macro dominante — usada na substituição automática.
+// Trocar um alimento só lista outros da MESMA categoria, igualando o macro:
+// carbo→carboidrato, proteina→proteína, gordura→gordura, livre→por peso (verduras).
+export type FoodCategory = "carbo" | "proteina" | "gordura" | "livre"
+
 export interface Profile {
   id: string
   name: string
@@ -29,6 +34,7 @@ export interface Food {
   carb_g: number
   protein_g: number
   fat_g: number
+  category: FoodCategory | null
   created_at: string
 }
 
@@ -59,6 +65,18 @@ export interface MealItemCompletion {
   meal_template_item_id: string
   date: string // YYYY-MM-DD
   completed_at: string
+}
+
+/** Troca de um item por um substituto, só naquele dia (Hoje). */
+export interface MealItemOverride {
+  id: string
+  profile_id: string
+  meal_template_item_id: string
+  date: string // YYYY-MM-DD
+  substitute_food_id: string
+  quantity: number
+  created_at: string
+  food: Food // join do alimento substituto
 }
 
 export interface WaterLog {

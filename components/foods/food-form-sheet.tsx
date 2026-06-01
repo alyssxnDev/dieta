@@ -12,15 +12,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { r } from "@/lib/calculations/macros"
+import { r, suggestCategory } from "@/lib/calculations/macros"
 import { useCreateFood, useUpdateFood } from "@/lib/queries/foods"
 import { cn } from "@/lib/utils"
-import type { Food, MeasureType } from "@/types/database"
+import type { Food, FoodCategory, MeasureType } from "@/types/database"
 
 const MEASURES: { value: MeasureType; label: string }[] = [
   { value: "g", label: "g" },
   { value: "ml", label: "ml" },
   { value: "unit", label: "un" },
+]
+
+const CATEGORIES: { value: FoodCategory; label: string }[] = [
+  { value: "carbo", label: "Carbo" },
+  { value: "proteina", label: "Proteína" },
+  { value: "gordura", label: "Gordura" },
+  { value: "livre", label: "Livre" },
 ]
 
 const toNum = (s: string): number => {
@@ -51,6 +58,8 @@ export function FoodFormSheet({
   const [carb, setCarb] = useState("")
   const [prot, setProt] = useState("")
   const [fat, setFat] = useState("")
+  // null = seguir a sugestão automática (pelos macros). Setado = escolha do user.
+  const [category, setCategory] = useState<FoodCategory | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,6 +74,7 @@ export function FoodFormSheet({
       setCarb(fromNum(initial.carb_g))
       setProt(fromNum(initial.protein_g))
       setFat(fromNum(initial.fat_g))
+      setCategory(initial.category)
     } else {
       setName("")
       setMeasure("g")
@@ -72,10 +82,21 @@ export function FoodFormSheet({
       setCarb("")
       setProt("")
       setFat("")
+      setCategory(null)
     }
   }, [open, initial])
 
   const computedKcal = deriveKcal(toNum(carb), toNum(prot), toNum(fat))
+  // Categoria efetiva: a escolhida, ou a sugerida pelos macros enquanto null.
+  const effectiveCategory: FoodCategory =
+    category ??
+    suggestCategory({
+      kcal: computedKcal,
+      carb_g: toNum(carb),
+      protein_g: toNum(prot),
+      fat_g: toNum(fat),
+      reference_quantity: toNum(refQty),
+    })
 
   const onSave = async () => {
     setError(null)
@@ -92,6 +113,7 @@ export function FoodFormSheet({
       carb_g: toNum(carb),
       protein_g: toNum(prot),
       fat_g: toNum(fat),
+      category: effectiveCategory,
     }
     setSubmitting(true)
     try {
@@ -213,6 +235,38 @@ export function FoodFormSheet({
             <span className="tabular-nums text-2xl font-bold">
               {r(computedKcal)}
             </span>
+          </div>
+
+          {/* Categoria — usada na substituição automática */}
+          <div className="flex flex-col gap-1.5">
+            <Label>
+              Categoria{" "}
+              <span className="text-muted-foreground font-normal">
+                (pra substituições)
+              </span>
+            </Label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setCategory(c.value)}
+                  className={cn(
+                    "rounded-lg border py-2 text-xs font-medium transition-colors",
+                    effectiveCategory === c.value
+                      ? "bg-primary text-primary-foreground border-transparent"
+                      : "border-border text-muted-foreground",
+                  )}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            {category === null && (
+              <p className="text-muted-foreground text-[11px]">
+                Sugerido pelos macros — toque pra trocar se quiser.
+              </p>
+            )}
           </div>
 
           {error && (

@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client"
 import type {
   Food,
   MealItemCompletion,
+  MealItemOverride,
   MealTemplate,
   MealTemplateItem,
   MealTemplateWithItems,
@@ -650,6 +651,133 @@ export function useAllMealTemplates(profileId: string | null) {
         items: [...m.items].sort((a, b) => a.order_index - b.order_index),
       }))
     },
+  })
+}
+
+// ---------- Substituições do dia (overrides) ----------
+
+const OVERRIDE_SELECT = `
+  id, profile_id, meal_template_item_id, date, substitute_food_id, quantity, created_at,
+  food:foods!meal_item_overrides_substitute_food_id_fkey (
+    id, name, measure_type, reference_quantity,
+    kcal, carb_g, protein_g, fat_g, category, created_at
+  )
+`
+
+export function useMealItemOverrides(profileId: string | null, date: string) {
+  return useQuery({
+    enabled: !!profileId,
+    placeholderData: keepPreviousData,
+    queryKey: mealKeys.overrides(profileId ?? "_", date),
+    queryFn: async (): Promise<MealItemOverride[]> => {
+      if (!profileId) return []
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("meal_item_overrides")
+        .select(OVERRIDE_SELECT)
+        .eq("profile_id", profileId)
+        .eq("date", date)
+      // Degrada com elegância se a tabela ainda não existir (SQL não rodado).
+      if (error) {
+        if (typeof console !== "undefined") {
+          console.warn("[overrides] indisponível:", error.message)
+        }
+        return []
+      }
+      return (data ?? []) as unknown as MealItemOverride[]
+    },
+  })
+}
+
+export function useSetMealItemOverride() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      profileId: string
+      mealItemId: string
+      date: string
+      substituteFood: Food
+      quantity: number
+    }): Promise<void> => {
+      const supabase = createClient()
+      const { error } = await supabase.from("meal_item_overrides").upsert(
+        {
+          profile_id: input.profileId,
+          meal_template_item_id: input.mealItemId,
+          date: input.date,
+          substitute_food_id: input.substituteFood.id,
+          quantity: input.quantity,
+        },
+        { onConflict: "profile_id,meal_template_item_id,date" },
+      )
+      if (error) throw error
+    },
+    onMutate: async (input) => {
+      const key = mealKeys.overrides(input.profileId, input.date)
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<MealItemOverride[]>(key) ?? []
+      const next = [
+        ...prev.filter((o) => o.meal_template_item_id !== input.mealItemId),
+        {
+          id: `optimistic-${input.mealItemId}`,
+          profile_id: input.profileId,
+          meal_template_item_id: input.mealItemId,
+          date: input.date,
+          substitute_food_id: input.substituteFood.id,
+          quantity: input.quantity,
+          created_at: new Date().toISOString(),
+          food: input.substituteFood,
+        } as MealItemOverride,
+      ]
+      qc.setQueryData(key, next)
+      return { prev }
+    },
+    onError: (_e, input, ctx) => {
+      if (ctx?.prev)
+        qc.setQueryData(mealKeys.overrides(input.profileId, input.date), ctx.prev)
+    },
+    onSettled: (_, __, input) =>
+      qc.invalidateQueries({
+        queryKey: mealKeys.overrides(input.profileId, input.date),
+      }),
+  })
+}
+
+export function useClearMealItemOverride() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      profileId: string
+      mealItemId: string
+      date: string
+    }): Promise<void> => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("meal_item_overrides")
+        .delete()
+        .eq("profile_id", input.profileId)
+        .eq("meal_template_item_id", input.mealItemId)
+        .eq("date", input.date)
+      if (error) throw error
+    },
+    onMutate: async (input) => {
+      const key = mealKeys.overrides(input.profileId, input.date)
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<MealItemOverride[]>(key) ?? []
+      qc.setQueryData(
+        key,
+        prev.filter((o) => o.meal_template_item_id !== input.mealItemId),
+      )
+      return { prev }
+    },
+    onError: (_e, input, ctx) => {
+      if (ctx?.prev)
+        qc.setQueryData(mealKeys.overrides(input.profileId, input.date), ctx.prev)
+    },
+    onSettled: (_, __, input) =>
+      qc.invalidateQueries({
+        queryKey: mealKeys.overrides(input.profileId, input.date),
+      }),
   })
 }
 
