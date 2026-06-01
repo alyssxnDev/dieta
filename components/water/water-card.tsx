@@ -3,6 +3,7 @@
 import { Droplet, Plus, Undo2 } from "lucide-react"
 import { useState } from "react"
 
+import { AnimatedNumber } from "@/components/ui/animated-number"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -77,9 +78,10 @@ export function WaterCard({
             <span className="font-medium">Água</span>
           </div>
           <span className="tabular-nums text-sm">
-            <span className={cn("font-semibold", hit && "text-emerald-600")}>
-              {total}
-            </span>
+            <AnimatedNumber
+              value={total}
+              className={cn("font-semibold", hit && "text-emerald-600")}
+            />
             <span className="text-muted-foreground"> / {goal} ml</span>
           </span>
         </div>

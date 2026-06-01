@@ -35,11 +35,41 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192.svg", type: "image/svg+xml", sizes: "192x192" },
-      { url: "/icons/icon-512.svg", type: "image/svg+xml", sizes: "512x512" },
+      { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icons/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
-    apple: [{ url: "/icons/apple-touch-icon.svg", sizes: "180x180" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
+}
+
+// Splash screens iOS (apple-touch-startup-image). Cada device tem dimensão CSS
+// (física ÷ DPR) — a media query casa o device certo. React 19 faz hoist dos
+// <link> pro <head>.
+const APPLE_SPLASH = [
+  { w: 1170, h: 2532, r: 3 }, // iPhone 12/13/14/16e
+  { w: 1179, h: 2556, r: 3 }, // iPhone 15/16 Pro
+  { w: 1206, h: 2622, r: 3 }, // iPhone 16 Pro
+  { w: 1290, h: 2796, r: 3 }, // iPhone 14/15 Pro Max
+  { w: 1320, h: 2868, r: 3 }, // iPhone 16 Pro Max
+  { w: 1284, h: 2778, r: 3 }, // iPhone 12/13 Pro Max
+  { w: 1125, h: 2436, r: 3 }, // iPhone X/XS/11 Pro
+  { w: 1242, h: 2688, r: 3 }, // iPhone XS Max/11 Pro Max
+  { w: 828, h: 1792, r: 2 }, // iPhone XR/11
+]
+
+function AppleSplashLinks() {
+  return (
+    <>
+      {APPLE_SPLASH.map(({ w, h, r }) => (
+        <link
+          key={`${w}x${h}`}
+          rel="apple-touch-startup-image"
+          media={`(device-width: ${w / r}px) and (device-height: ${h / r}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`}
+          href={`/splash/splash-${w}x${h}.png`}
+        />
+      ))}
+    </>
+  )
 }
 
 export const viewport: Viewport = {
@@ -64,6 +94,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-background text-foreground flex min-h-screen flex-col">
+        <AppleSplashLinks />
         <Providers>{children}</Providers>
       </body>
     </html>
