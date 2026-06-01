@@ -70,7 +70,7 @@ export function useMealTemplatesByDay(
             id, meal_template_id, food_id, quantity, order_index,
             food:foods (
               id, name, measure_type, reference_quantity,
-              kcal, carb_g, protein_g, fat_g, created_at
+              kcal, carb_g, protein_g, fat_g, category, created_at
             )
           )
           `,
@@ -637,7 +637,7 @@ export function useAllMealTemplates(profileId: string | null) {
             id, meal_template_id, food_id, quantity, order_index,
             food:foods (
               id, name, measure_type, reference_quantity,
-              kcal, carb_g, protein_g, fat_g, created_at
+              kcal, carb_g, protein_g, fat_g, category, created_at
             )
           )
           `,

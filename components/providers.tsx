@@ -49,8 +49,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       persistOptions={{
         persister,
         maxAge: 24 * 60 * 60 * 1000, // 24h
-        // Bump essa string quando o shape dos dados mudar (invalida cache antigo)
-        buster: "v1",
+        // Bump essa string quando o shape dos dados mudar (invalida cache antigo).
+        // v2: foods agora carregam `category` nas refeições.
+        buster: "v2",
       }}
     >
       {children}
