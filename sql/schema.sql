@@ -1,40 +1,32 @@
 -- =============================================================================
--- Dieta — Schema completo
+-- Dieta — Schema (NÃO-DESTRUTIVO / idempotente)
 -- =============================================================================
 --
--- IMPORTANTE: se você JÁ rodou uma versão anterior desse schema, esse arquivo
--- DROPa todas as tabelas (e os dados) antes de recriar. Roda de novo:
---   1. Abre o SQL Editor: https://supabase.com/dashboard/project/_/sql/new
---   2. Cola TUDO desse arquivo
---   3. Clica em "Run"
+-- ✅ SEGURO RERODAR: este arquivo NUNCA apaga seus dados. Pode rodar quantas
+--    vezes quiser — só cria o que falta e ajusta policies/realtime.
+--    (Usa `create table if not exists`, `drop policy if exists` + recria,
+--     seeds só entram se a tabela de perfis estiver vazia.)
 --
--- Mudança principal vs versão anterior:
---   meal_completions → meal_item_completions
---   Agora checamos por ITEM (banana, aveia, etc), não por refeição inteira.
---   Refeição "completa" = todos os itens dela marcados.
+-- Como rodar:
+--   1. SQL Editor: https://supabase.com/dashboard/project/_/sql/new
+--   2. Cola TUDO → Run
 --
--- Depois do schema:
+-- Setup inicial (uma vez):
 --   1. Authentication → Users → Add user → "Create new user"
 --      2 usuários, marca "Auto Confirm User"
 --   2. Authentication → Sign In / Up: "Allow new users to sign up" DESABILITADO
 --
 -- Segurança (repo público): signup off + RLS authenticated-only em todas as
 -- tabelas. Os 2 usuários têm acesso total a TUDO (intencional — casal).
+--
+-- ⚠️ Pra ZERAR o banco do zero (apagar tudo), use sql/reset.sql.
 -- =============================================================================
-
-drop table if exists public.meal_item_completions cascade;
-drop table if exists public.meal_completions cascade;
-drop table if exists public.water_logs cascade;
-drop table if exists public.meal_template_items cascade;
-drop table if exists public.meal_templates cascade;
-drop table if exists public.foods cascade;
-drop table if exists public.profiles cascade;
 
 
 -- =============================================================================
 -- profiles
 -- =============================================================================
-create table public.profiles (
+create table if not exists public.profiles (
   id                          uuid primary key default gen_random_uuid(),
   name                        text not null,
   color                       text not null,
@@ -52,10 +44,10 @@ create table public.profiles (
 
 
 -- =============================================================================
--- foods — banco compartilhado entre os 2 perfis
+-- foods — banco COMPARTILHADO entre os 2 perfis (sem profile_id)
 -- reference_quantity é a quantidade-base pra normalizar macros.
 -- =============================================================================
-create table public.foods (
+create table if not exists public.foods (
   id                  uuid primary key default gen_random_uuid(),
   name                text not null,
   measure_type        text not null check (measure_type in ('g', 'ml', 'unit')),
@@ -67,34 +59,34 @@ create table public.foods (
   created_at          timestamptz not null default now()
 );
 
-create index foods_name_lower_idx on public.foods (lower(name));
+create index if not exists foods_name_lower_idx on public.foods (lower(name));
 
 
 -- =============================================================================
 -- meal_templates — 1 registro por refeição por dia da semana
 -- day_of_week: 0=domingo, 1=segunda, ..., 6=sábado
 -- =============================================================================
-create table public.meal_templates (
+create table if not exists public.meal_templates (
   id           uuid primary key default gen_random_uuid(),
   profile_id   uuid not null references public.profiles(id) on delete cascade,
   day_of_week  int  not null check (day_of_week between 0 and 6),
   name         text not null,
-  time         time,                                     -- horário opcional
-  notify       boolean not null default true,            -- v2 de notificações
+  time         time,
+  notify       boolean not null default true,
   order_index  int  not null default 0,
   created_at   timestamptz not null default now()
 );
 
-create index meal_templates_profile_day_idx
+create index if not exists meal_templates_profile_day_idx
   on public.meal_templates (profile_id, day_of_week, order_index);
-create index meal_templates_name_idx
+create index if not exists meal_templates_name_idx
   on public.meal_templates (profile_id, lower(name));
 
 
 -- =============================================================================
 -- meal_template_items — alimentos dentro de cada refeição
 -- =============================================================================
-create table public.meal_template_items (
+create table if not exists public.meal_template_items (
   id                uuid primary key default gen_random_uuid(),
   meal_template_id  uuid not null references public.meal_templates(id) on delete cascade,
   food_id           uuid not null references public.foods(id)          on delete cascade,
@@ -102,7 +94,7 @@ create table public.meal_template_items (
   order_index       int not null default 0
 );
 
-create index meal_template_items_template_idx
+create index if not exists meal_template_items_template_idx
   on public.meal_template_items (meal_template_id, order_index);
 
 
@@ -110,7 +102,7 @@ create index meal_template_items_template_idx
 -- meal_item_completions — "marquei esse alimento hoje"
 -- Refeição "completa" = todos os itens dela marcados no mesmo dia.
 -- =============================================================================
-create table public.meal_item_completions (
+create table if not exists public.meal_item_completions (
   id                       uuid primary key default gen_random_uuid(),
   profile_id               uuid not null references public.profiles(id)              on delete cascade,
   meal_template_item_id    uuid not null references public.meal_template_items(id)   on delete cascade,
@@ -119,14 +111,14 @@ create table public.meal_item_completions (
   unique (profile_id, meal_template_item_id, date)
 );
 
-create index meal_item_completions_profile_date_idx
+create index if not exists meal_item_completions_profile_date_idx
   on public.meal_item_completions (profile_id, date);
 
 
 -- =============================================================================
 -- water_logs — cada copo/dose registrada
 -- =============================================================================
-create table public.water_logs (
+create table if not exists public.water_logs (
   id           uuid primary key default gen_random_uuid(),
   profile_id   uuid not null references public.profiles(id) on delete cascade,
   date         date not null,
@@ -134,12 +126,12 @@ create table public.water_logs (
   logged_at    timestamptz not null default now()
 );
 
-create index water_logs_profile_date_idx
+create index if not exists water_logs_profile_date_idx
   on public.water_logs (profile_id, date);
 
 
 -- =============================================================================
--- RLS — só `authenticated` entra.
+-- RLS — só `authenticated` entra. (drop+create = idempotente, não toca dados)
 -- =============================================================================
 alter table public.profiles                enable row level security;
 alter table public.foods                   enable row level security;
@@ -148,30 +140,33 @@ alter table public.meal_template_items     enable row level security;
 alter table public.meal_item_completions   enable row level security;
 alter table public.water_logs              enable row level security;
 
+drop policy if exists "authenticated_full_access" on public.profiles;
 create policy "authenticated_full_access" on public.profiles
   for all to authenticated using (true) with check (true);
 
+drop policy if exists "authenticated_full_access" on public.foods;
 create policy "authenticated_full_access" on public.foods
   for all to authenticated using (true) with check (true);
 
+drop policy if exists "authenticated_full_access" on public.meal_templates;
 create policy "authenticated_full_access" on public.meal_templates
   for all to authenticated using (true) with check (true);
 
+drop policy if exists "authenticated_full_access" on public.meal_template_items;
 create policy "authenticated_full_access" on public.meal_template_items
   for all to authenticated using (true) with check (true);
 
+drop policy if exists "authenticated_full_access" on public.meal_item_completions;
 create policy "authenticated_full_access" on public.meal_item_completions
   for all to authenticated using (true) with check (true);
 
+drop policy if exists "authenticated_full_access" on public.water_logs;
 create policy "authenticated_full_access" on public.water_logs
   for all to authenticated using (true) with check (true);
 
 
 -- =============================================================================
--- Realtime — sync ao vivo entre os 2 celulares.
--- Adiciona as tabelas na publication `supabase_realtime` pra o app receber
--- mudanças em tempo real (um marca refeição → o outro vê na hora).
--- Idempotente: ignora se a tabela já está na publication.
+-- Realtime — sync ao vivo entre os 2 celulares (idempotente).
 -- =============================================================================
 do $$
 begin
@@ -188,11 +183,15 @@ end $$;
 
 
 -- =============================================================================
--- Seeds — os 2 perfis. Banco de alimentos começa vazio.
+-- Seeds — os 2 perfis. SÓ entram se a tabela de perfis estiver VAZIA
+-- (assim rerodar não duplica nem mexe nos perfis que você já editou).
 -- =============================================================================
 insert into public.profiles
   (name, color, daily_kcal_goal, daily_carb_g_goal, daily_protein_g_goal,
    daily_fat_g_goal, daily_water_ml_goal)
-values
+select * from (values
   ('Você', '#a78bfa', 2400, 300, 180, 80, 3000),
-  ('Ela',  '#f472b6', 1800, 220, 120, 60, 2500);
+  ('Ela',  '#f472b6', 1800, 220, 120, 60, 2500)
+) as seed(name, color, daily_kcal_goal, daily_carb_g_goal,
+          daily_protein_g_goal, daily_fat_g_goal, daily_water_ml_goal)
+where not exists (select 1 from public.profiles);

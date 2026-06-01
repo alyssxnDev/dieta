@@ -77,7 +77,9 @@ lib/
 ├── haptic.ts              # navigator.vibrate wrapper
 └── utils.ts               # cn() do shadcn
 
-sql/schema.sql             # idempotente — drops tudo + recria + seeds
+sql/schema.sql             # NÃO-DESTRUTIVO: create-if-not-exists + drop/create policy + seeds guardados. Seguro rerodar.
+sql/enable-realtime.sql    # snippet isolado pra ligar realtime sem tocar dados
+sql/reset.sql              # ⚠️ destrutivo — só pra zerar de propósito
 types/database.ts          # interfaces TS manuais (manter em sync com schema.sql)
 proxy.ts                   # Next 16 middleware (chama updateSession + redirects)
 ```
@@ -301,7 +303,7 @@ Para testar PWA no iPhone:
 
 - **Não reintroduzir custom keypad** — foi descartado em `7f47dd3` por decisão de UX (apps profissionais usam teclado iOS).
 - **Não voltar pro tema dark** — light é definitivo.
-- **Schema do Supabase**: se alterar, atualizar `sql/schema.sql` E `types/database.ts` na mesma PR. Idempotente — usuário roda de novo no SQL Editor.
+- **Schema do Supabase**: se alterar, atualizar `sql/schema.sql` E `types/database.ts` na mesma PR. ⚠️ **NUNCA reintroduzir `drop table` no `schema.sql`** — o usuário tem dados reais cadastrados. Schema é NÃO-DESTRUTIVO (`create table if not exists`, `drop policy if exists`+create, seeds só se perfis vazios). Pra mudanças de schema use `alter table ... add column if not exists` etc. O destrutivo vive isolado em `sql/reset.sql`.
 - **Antes de mudar layout do shell**: cuidado com `min-h-screen` vs `dvh` — testar inicialização em PWA standalone iOS (vh estável, dvh shifta).
 - **Antes de mudar sheets com input**: confirmar que `h-[92dvh]` ainda dá conta quando iOS keyboard abre. Se trocar, testar em iPhone real.
 - **Lint**: `react-hooks/set-state-in-effect` é estrita; preferir `useMemo`/`useSyncExternalStore`/key-prop, e usar disable inline só com comentário justificativo.
