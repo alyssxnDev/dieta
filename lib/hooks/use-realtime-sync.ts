@@ -50,6 +50,9 @@ export function useRealtimeSync() {
         bump("water", waterKeys.all),
       )
       .on("postgres_changes", tbl("foods"), () => bump("foods", foodKeys.all))
+      .on("postgres_changes", tbl("food_substitutes"), () =>
+        bump("foods", foodKeys.all),
+      )
       .on("postgres_changes", tbl("profiles"), () =>
         bump("profiles", profileKeys.all),
       )

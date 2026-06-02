@@ -58,6 +58,26 @@ export function useFoodSubstitutes(foodId: string | null) {
   })
 }
 
+/** Conjunto de food_ids que têm pelo menos 1 substituto cadastrado.
+ *  Usado no Hoje pra só mostrar a flecha de troca onde faz sentido. */
+export function useFoodsWithSubstitutes() {
+  return useQuery({
+    queryKey: [...foodKeys.substitutesAll(), "has"],
+    queryFn: async (): Promise<string[]> => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("food_substitutes")
+        .select("food_id")
+      if (error) {
+        if (typeof console !== "undefined")
+          console.warn("[substitutes] indisponível:", error.message)
+        return []
+      }
+      return [...new Set((data ?? []).map((r) => r.food_id as string))]
+    },
+  })
+}
+
 /** Adiciona vínculo simétrico (A↔B). */
 export function useAddSubstitute() {
   const qc = useQueryClient()

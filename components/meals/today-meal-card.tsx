@@ -21,6 +21,7 @@ export function TodayMealCard({
   meal,
   completedItemIds,
   overrides,
+  swappableFoodIds,
   late,
   accentColor,
   onToggleItem,
@@ -30,6 +31,8 @@ export function TodayMealCard({
   meal: MealTemplateWithItems
   completedItemIds: Set<string>
   overrides: OverrideMap
+  /** food_ids que têm substituto cadastrado — só esses mostram a flecha. */
+  swappableFoodIds: Set<string>
   late: boolean
   accentColor: string
   onToggleItem: (itemId: string, currentlyCompleted: boolean) => void
@@ -218,17 +221,19 @@ export function TodayMealCard({
                             </p>
                           </div>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            haptic(6)
-                            onSwapItem(it)
-                          }}
-                          aria-label={`Trocar ${it.food.name}`}
-                          className="text-muted-foreground hover:text-foreground flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
-                        >
-                          <ArrowLeftRight className="size-4" />
-                        </button>
+                        {(swappableFoodIds.has(it.food.id) || swapped) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptic(6)
+                              onSwapItem(it)
+                            }}
+                            aria-label={`Trocar ${it.food.name}`}
+                            className="text-muted-foreground hover:text-foreground flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                          >
+                            <ArrowLeftRight className="size-4" />
+                          </button>
+                        )}
                       </div>
                     )
                   })}

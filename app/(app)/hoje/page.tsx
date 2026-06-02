@@ -11,6 +11,7 @@ import { dayTotals, type OverrideMap } from "@/lib/calculations/macros"
 import { formatLongDate } from "@/lib/date"
 import { useActiveProfile } from "@/lib/hooks/use-active-profile"
 import { useToday } from "@/lib/hooks/use-today"
+import { useFoodsWithSubstitutes } from "@/lib/queries/foods"
 import {
   useClearMealItemOverride,
   useMealItemCompletions,
@@ -36,6 +37,7 @@ export default function HojePage() {
   )
   const { data: completions } = useMealItemCompletions(active?.id ?? null, date)
   const { data: overridesData } = useMealItemOverrides(active?.id ?? null, date)
+  const { data: foodsWithSubs } = useFoodsWithSubstitutes()
   const toggleItem = useToggleMealItemCompletion()
   const toggleAll = useToggleAllMealItems()
   const setOverride = useSetMealItemOverride()
@@ -60,6 +62,11 @@ export default function HojePage() {
   const totals = useMemo(
     () => dayTotals(meals ?? [], completedItemIds, overrides),
     [meals, completedItemIds, overrides],
+  )
+
+  const swappableFoodIds = useMemo(
+    () => new Set(foodsWithSubs ?? []),
+    [foodsWithSubs],
   )
 
   const now = new Date()
@@ -134,6 +141,7 @@ export default function HojePage() {
                 meal={m}
                 completedItemIds={completedItemIds}
                 overrides={overrides}
+                swappableFoodIds={swappableFoodIds}
                 late={late}
                 accentColor={active.color}
                 onToggleItem={(itemId, currentlyCompleted) =>
