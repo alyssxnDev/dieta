@@ -151,13 +151,14 @@ Sheets de confirmação curtos (sem input) usam `max-h-[50dvh|60dvh]`.
 - Refeição "completa" = todos os items dela checados naquele dia.
 - Streak de refeição computado em `painel/page.tsx` agrupando items por meal.
 
-### Substituições (categoria + override do dia)
-- `foods.category` (`carbo|proteina|gordura|livre`) — macro dominante. Cadastro sugere automático (`suggestCategory` em `lib/calculations/macros.ts`), usuário confirma.
-- `meal_item_overrides` — troca de um item por outro alimento **só naquele dia** (Hoje), sem mexer no planner. Sincroniza via realtime.
-- Troca **trava por categoria**: só lista alimentos da mesma categoria, e calcula a quantidade equivalente automático (`equivalentQuantity` iguala o macro da categoria; `livre` iguala por peso). Sem entrada manual.
+### Substituições (substitutos por alimento, simétricos + override do dia)
+- `foods.category` (`carbo|proteina|gordura|livre`) — macro dominante. Cadastro sugere automático (`suggestCategory`), usuário confirma. Badge na aba Alimentos, dot (cor `-400`) no Planner/Hoje (`components/foods/category-badge.tsx`).
+- **`food_substitutes`** — substitutos cadastrados POR alimento, **simétricos** (adicionar B em A grava `(A,B)` e `(B,A)`). Configurado na aba Alimentos via `SubstitutesSheet` (ícone ↔ no `FoodRow`). Picker só lista **mesma categoria**. `useAddSubstitute`/`useRemoveSubstitute` (foods.ts) gravam/apagam as 2 direções.
+- **`meal_item_overrides`** — a troca de um item por um substituto **só naquele dia** (Hoje), sem mexer no planner. Sincroniza via realtime.
+- No Hoje, `FoodSwapSheet` lista **só os substitutos cadastrados** do alimento (`useFoodSubstitutes`), NÃO a categoria toda. `equivalentQuantity` calcula a qty igualando o macro da categoria do original (`livre` = por peso).
 - `effectiveItem(item, overrides)` resolve food/qty efetivos; `dayTotals`/`mealTotals` aceitam `OverrideMap`.
-- UI: `FoodSwapSheet` + botão trocar no `TodayMealCard`. Read de override é **defensivo** (retorna `[]` se a tabela não existir — degrada sem quebrar).
-- SQL: `sql/add-substitutions.sql` (snippet isolado seguro) — adiciona coluna + backfill + tabela. Espelhado no `schema.sql`.
+- Reads de override e substitutos são **defensivos** (retornam `[]` se a tabela não existir).
+- SQL isolado seguro: `sql/add-substitutions.sql` (category + overrides) e `sql/add-food-substitutes.sql` (tabela de substitutos). Espelhados no `schema.sql`.
 
 ### Forced light bg em recharts tooltips
 Tooltips dos gráficos no painel usam strings literais `#ffffff` / `#e4e4e7` / `#71717a` / `#18181b` porque recharts não pega CSS custom properties bem.

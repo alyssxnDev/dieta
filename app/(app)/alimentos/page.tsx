@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 
 import { FoodFormSheet } from "@/components/foods/food-form-sheet"
 import { FoodRow } from "@/components/foods/food-row"
+import { SubstitutesSheet } from "@/components/foods/substitutes-sheet"
 import { Button } from "@/components/ui/button"
 import { ConfirmSheet } from "@/components/ui/confirm-sheet"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,7 @@ export default function AlimentosPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<Food | null>(null)
   const [deleting, setDeleting] = useState<Food | null>(null)
+  const [substitutesFor, setSubstitutesFor] = useState<Food | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -81,6 +83,7 @@ export default function AlimentosPage() {
                 food={f}
                 onEdit={() => openEdit(f)}
                 onDelete={() => setDeleting(f)}
+                onSubstitutes={() => setSubstitutesFor(f)}
               />
             </li>
           ))}
@@ -112,6 +115,15 @@ export default function AlimentosPage() {
         destructive
         onConfirm={confirmRemove}
       />
+
+      {substitutesFor && (
+        <SubstitutesSheet
+          key={substitutesFor.id}
+          open
+          onOpenChange={(o) => !o && setSubstitutesFor(null)}
+          food={substitutesFor}
+        />
+      )}
     </main>
   )
 }

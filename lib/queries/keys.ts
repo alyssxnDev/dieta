@@ -7,6 +7,9 @@ export const profileKeys = {
 export const foodKeys = {
   all: ["foods"] as const,
   list: () => [...foodKeys.all, "list"] as const,
+  substitutesAll: () => [...foodKeys.all, "substitutes"] as const,
+  substitutes: (foodId: string) =>
+    [...foodKeys.all, "substitutes", foodId] as const,
 }
 
 export const mealKeys = {

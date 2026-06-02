@@ -8,6 +8,7 @@
 -- registros de água e histórico. Não tem desfazer.
 -- =============================================================================
 
+drop table if exists public.food_substitutes cascade;
 drop table if exists public.meal_item_overrides cascade;
 drop table if exists public.meal_item_completions cascade;
 drop table if exists public.meal_completions cascade;  -- tabela legada (v1)

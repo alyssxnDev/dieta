@@ -156,6 +156,24 @@ create index if not exists meal_item_overrides_profile_date_idx
 
 
 -- =============================================================================
+-- food_substitutes — substitutos cadastrados por alimento (simétrico).
+-- Adicionar B em A grava também (B,A). No Hoje, a troca só lista o que está
+-- cadastrado aqui.
+-- =============================================================================
+create table if not exists public.food_substitutes (
+  id                  uuid primary key default gen_random_uuid(),
+  food_id             uuid not null references public.foods(id) on delete cascade,
+  substitute_food_id  uuid not null references public.foods(id) on delete cascade,
+  created_at          timestamptz not null default now(),
+  unique (food_id, substitute_food_id),
+  check (food_id <> substitute_food_id)
+);
+
+create index if not exists food_substitutes_food_idx
+  on public.food_substitutes (food_id);
+
+
+-- =============================================================================
 -- RLS — só `authenticated` entra. (drop+create = idempotente, não toca dados)
 -- =============================================================================
 alter table public.profiles                enable row level security;
@@ -165,6 +183,7 @@ alter table public.meal_template_items     enable row level security;
 alter table public.meal_item_completions   enable row level security;
 alter table public.water_logs              enable row level security;
 alter table public.meal_item_overrides     enable row level security;
+alter table public.food_substitutes        enable row level security;
 
 drop policy if exists "authenticated_full_access" on public.profiles;
 create policy "authenticated_full_access" on public.profiles
@@ -192,6 +211,10 @@ create policy "authenticated_full_access" on public.water_logs
 
 drop policy if exists "authenticated_full_access" on public.meal_item_overrides;
 create policy "authenticated_full_access" on public.meal_item_overrides
+  for all to authenticated using (true) with check (true);
+
+drop policy if exists "authenticated_full_access" on public.food_substitutes;
+create policy "authenticated_full_access" on public.food_substitutes
   for all to authenticated using (true) with check (true);
 
 -- Backfill de category (só onde está nulo — não sobrescreve edições suas)
@@ -228,7 +251,8 @@ begin
     public.meal_template_items,
     public.meal_item_completions,
     public.water_logs,
-    public.meal_item_overrides;
+    public.meal_item_overrides,
+    public.food_substitutes;
 exception
   when duplicate_object then null;  -- já estava na publication
 end $$;

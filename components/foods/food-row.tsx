@@ -1,6 +1,6 @@
 "use client"
 
-import { Pencil, Trash2 } from "lucide-react"
+import { ArrowLeftRight, Pencil, Trash2 } from "lucide-react"
 
 import { CategoryBadge } from "@/components/foods/category-badge"
 import { r } from "@/lib/calculations/macros"
@@ -16,10 +16,12 @@ export function FoodRow({
   food,
   onEdit,
   onDelete,
+  onSubstitutes,
 }: {
   food: Food
   onEdit: () => void
   onDelete: () => void
+  onSubstitutes: () => void
 }) {
   return (
     <div className="bg-card flex items-center gap-2 rounded-2xl border border-border px-3 py-2.5">
@@ -35,6 +37,14 @@ export function FoodRow({
         </p>
       </div>
 
+      <button
+        type="button"
+        onClick={onSubstitutes}
+        aria-label={`Substitutos de ${food.name}`}
+        className="text-muted-foreground hover:text-foreground hover:bg-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors"
+      >
+        <ArrowLeftRight className="size-4" />
+      </button>
       <button
         type="button"
         onClick={onEdit}

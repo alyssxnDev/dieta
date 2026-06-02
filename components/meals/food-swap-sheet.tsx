@@ -11,7 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { equivalentQuantity, normalizeFoodItem, r } from "@/lib/calculations/macros"
-import { useFoods } from "@/lib/queries/foods"
+import { useFoodSubstitutes } from "@/lib/queries/foods"
 import type { Food } from "@/types/database"
 
 const UNIT_LABEL: Record<Food["measure_type"], string> = {
@@ -51,21 +51,21 @@ export function FoodSwapSheet({
   onPick: (food: Food, qty: number) => void
   onClear: () => void
 }) {
-  const { data: foods } = useFoods()
+  const { data: subs } = useFoodSubstitutes(open ? originalFood.id : null)
   const category = originalFood.category
 
-  // Candidatos: mesma categoria, exceto o próprio original.
+  // Candidatos: só os substitutos cadastrados no alimento.
   const candidates = useMemo(() => {
-    if (!category) return []
-    return (foods ?? [])
-      .filter((f) => f.category === category && f.id !== originalFood.id)
+    return (subs ?? [])
+      .filter((f) => f.id !== originalFood.id)
       .map((f) => {
-        const qty = equivalentQuantity(originalFood, originalQty, f, category)
+        const cat = category ?? f.category ?? "livre"
+        const qty = equivalentQuantity(originalFood, originalQty, f, cat)
         const macros = normalizeFoodItem(f, qty)
         return { food: f, qty, kcal: macros.kcal }
       })
       .sort((a, b) => a.food.name.localeCompare(b.food.name, "pt-BR"))
-  }, [foods, category, originalFood, originalQty])
+  }, [subs, category, originalFood, originalQty])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -96,15 +96,10 @@ export function FoodSwapSheet({
             </button>
           )}
 
-          {!category ? (
+          {candidates.length === 0 ? (
             <p className="text-muted-foreground px-3 py-6 text-center text-sm">
-              Esse alimento não tem categoria. Edite ele na aba Alimentos e
-              defina a categoria pra poder trocar.
-            </p>
-          ) : candidates.length === 0 ? (
-            <p className="text-muted-foreground px-3 py-6 text-center text-sm">
-              Nenhum outro alimento de {CATEGORY_LABEL[category]} cadastrado.
-              Cadastra um na aba Alimentos.
+              Nenhum substituto cadastrado pra {originalFood.name}. Cadastra na
+              aba Alimentos (ícone de trocar no alimento).
             </p>
           ) : (
             <ul className="flex flex-col gap-0.5">
